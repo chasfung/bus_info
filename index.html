@@ -3,229 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- 強制瀏覽器與雲端伺服器不要快取網頁 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>Bus Widget Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <title>Bus Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@700;900&display=swap" rel="stylesheet">
-  
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: 100%; height: 100%; overflow: hidden;
-      background-color: #ffffff;
-      font-family: 'Noto Sans HK', -apple-system, sans-serif;
-      display: flex; flex-direction: column; justify-content: space-between;
-      padding: 2px 4px;
+    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #ffffff; font-family: 'Noto Sans HK', sans-serif; padding: 4px; }
+    .container { display: flex; flex-direction: column; height: 100%; gap: 6px; }
+    
+    .section-title { font-size: 15px; font-weight: 900; color: #000; margin-left: 2px; }
+    .header-row { display: flex; justify-content: flex-end; gap: 20px; font-size: 11px; font-weight: 900; color: #666; padding-right: 5px; margin-bottom: -4px;}
+    
+    .bus-row { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+    .bus-tag { 
+      background-color: #000; color: #fff; font-size: 18px; font-weight: 900; 
+      padding: 2px 8px; border-radius: 6px; width: 85px; text-align: center;
     }
-    .section-title {
-      font-size: 16px; font-weight: 900; color: #000000;
-      border-bottom: 2px solid #000000; margin-top: 2px; margin-bottom: 2px; padding-bottom: 1px;
-    }
-    .bus-row {
-      display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid #eaeaea; height: calc(100% / 12); min-height: 24px;
-    }
-    .route-badge {
-      display: inline-block; width: 48px; text-align: center;
-      font-size: 14px; font-weight: 900; color: #ffffff; border-radius: 4px; padding: 1px 0;
-    }
-    .badge-kmb { background-color: #000000; }
-    .badge-gmb { background-color: #38b000; }
-    .eta-box { font-size: 17px; font-weight: 900; color: #000000; width: 38%; text-align: center; position: relative; }
-    .co-label {
-      position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
-      font-size: 9px; padding: 1px 3px; border-radius: 3px; line-height: 1; font-weight: 900;
-    }
-    .co-kmb { background-color: #000000; color: #ffffff; }
-    .co-ctb { background-color: #f3f4f6; color: #000000; border: 1px solid #000000; }
-    .footer { font-size: 10px; color: #666666; text-align: right; font-weight: 700; margin-top: 2px; }
+    .gmb-tag { background-color: #8c9e5e; } /* 綠小專屬顏色 */
+    
+    .times { display: flex; gap: 20px; font-size: 20px; font-weight: 700; color: #000; width: 140px; justify-content: flex-end; }
+    .time-slot { width: 60px; text-align: right; }
   </style>
 </head>
 <body>
-
-  <!-- 第一組：紅磡南道 -->
-  <div>
+  <div class="container">
+    <div class="header-row"><span>COMING</span><span>NEXT</span></div>
+    
     <div class="section-title">紅磡南道</div>
-    <div class="bus-row"><span class="route-badge badge-kmb">12A</span><span class="eta-box" id="eta-12a-1">--:--</span><span class="eta-box" id="eta-12a-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-kmb">7B</span><span class="eta-box" id="eta-7b-1">--:--</span><span class="eta-box" id="eta-7b-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-kmb">15</span><span class="eta-box" id="eta-15-1">--:--</span><span class="eta-box" id="eta-15-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-kmb">297</span><span class="eta-box" id="eta-297-1">--:--</span><span class="eta-box" id="eta-297-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-kmb">269B</span><span class="eta-box" id="eta-269b-1">--:--</span><span class="eta-box" id="eta-269b-2">--:--</span></div>
-  </div>
+    <div class="bus-row"><div class="bus-tag">12A</div><div class="times"><div class="time-slot" id="12A-1">--</div><div class="time-slot" id="12A-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">7B</div><div class="times"><div class="time-slot" id="7B-1">--</div><div class="time-slot" id="7B-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">297</div><div class="times"><div class="time-slot" id="297-1">--</div><div class="time-slot" id="297-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">15</div><div class="times"><div class="time-slot" id="15-1">--</div><div class="time-slot" id="15-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">269B</div><div class="times"><div class="time-slot" id="269B-1">--</div><div class="time-slot" id="269B-2">--</div></div></div>
 
-  <!-- 第二組：黃埔花園 -->
-  <div style="margin-top: 4px;">
-    <div class="section-title">黃埔花園</div>
-    <div class="bus-row"><span class="route-badge badge-gmb">2</span><span class="eta-box" id="eta-gmb2-1">--:--</span><span class="eta-box" id="eta-gmb2-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-gmb">2A</span><span class="eta-box" id="eta-gmb2a-1">--:--</span><span class="eta-box" id="eta-gmb2a-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-kmb">8A</span><span class="eta-box" id="eta-8a-1">--:--</span><span class="eta-box" id="eta-8a-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-kmb">8P</span><span class="eta-box" id="eta-8p-1">--:--</span><span class="eta-box" id="eta-8p-2">--:--</span></div>
-    <div class="bus-row"><span class="route-badge badge-kmb">115</span><span class="eta-box" id="eta-115-1">--:--</span><span class="eta-box" id="eta-115-2">--:--</span></div>
+    <div class="section-title" style="margin-top: 4px;">黃埔花園</div>
+    <div class="bus-row"><div class="bus-tag gmb-tag">2</div><div class="times"><div class="time-slot" id="GMB2-1">--</div><div class="time-slot" id="GMB2-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag gmb-tag">2A</div><div class="times"><div class="time-slot" id="GMB2A-1">--</div><div class="time-slot" id="GMB2A-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">8A</div><div class="times"><div class="time-slot" id="8A-1">--</div><div class="time-slot" id="8A-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">8P</div><div class="times"><div class="time-slot" id="8P-1">--</div><div class="time-slot" id="8P-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">115</div><div class="times"><div class="time-slot" id="115-1">--</div><div class="time-slot" id="115-2">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">115城巴</div><div class="times"><div class="time-slot" id="115CTB-1">--</div><div class="time-slot" id="115CTB-2">--</div></div></div>
   </div>
-
-  <div class="footer">巴士數據刷新時間: <span id="bus-last-update">--:--:--</span></div>
 
   <script>
-    /* 強制香港時間 (UTC+8) */
-    function getHKTimeString(dateObj) {
-      if (isNaN(dateObj.getTime())) return "--:--";
-      const hkTimeMs = dateObj.getTime() + (8 * 3600000);
-      const hkDate = new Date(hkTimeMs);
-      const hrs = String(hkDate.getUTCHours()).padStart(2, '0');
-      const mins = String(hkDate.getUTCMinutes()).padStart(2, '0');
-      return `${hrs}:${mins}`;
-    }
-
-    function formatTimeStr(isoString) {
-      if (!isoString) return "--:--";
-      if (typeof isoString === 'string' && /^\d{2}:\d{2}$/.test(isoString)) return isoString;
-      return getHKTimeString(new Date(isoString));
-    }
-
-    /* 專線小巴高相容性時間戳解析器 */
-    function parseGmbEtas(json) {
-      let etas = [];
-      if (!json) return etas;
+    async function loadData() {
       try {
-        let items = [];
-        if (Array.isArray(json.data)) {
-          json.data.forEach(d => {
-            if (d && Array.isArray(d.eta)) items.push(...d.eta);
-            else if (d && (d.timestamp || d.diff !== undefined)) items.push(d);
-          });
-        } else if (json.data && Array.isArray(json.data.eta)) {
-          items = json.data.eta;
-        } else if (json.data && (json.data.timestamp || json.data.diff !== undefined)) {
-          items = [json.data];
-        }
-
-        items.forEach(item => {
-          if (item.timestamp) {
-            etas.push(item.timestamp);
-          } else if (typeof item.diff === 'number') {
-            const target = new Date(Date.now() + item.diff * 60000);
-            etas.push(getHKTimeString(target));
-          }
-        });
-      } catch (err) {}
-      return etas;
-    }
-
-    /* 抓取 API (加入 Cache-Busting 時間戳) */
-    async function fetchETA(url, elementId1, elementId2, isGMB = false) {
-      const el1 = document.getElementById(elementId1);
-      const el2 = document.getElementById(elementId2);
-      if (!el1 || !el2) return;
-
-      try {
-        let json = null;
-        // 強制加上時間戳記，避免 SenseCraft 快取
-        const cacheBuster = url.includes('?') ? `&t=${new Date().getTime()}` : `?t=${new Date().getTime()}`;
-        const fetchUrl = url + cacheBuster;
-
-        try {
-          const res = await fetch(fetchUrl, { cache: 'no-store' });
-          if (res.ok) json = await res.json();
-          else throw new Error(`HTTP ${res.status}`);
-        } catch (directErr) {
-          if (isGMB) {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}`;
-            const resProxy = await fetch(proxyUrl, { cache: 'no-store' });
-            json = await resProxy.json();
-          } else {
-            throw directErr;
-          }
-        }
-
-        let etas = [];
-        if (isGMB) {
-          etas = parseGmbEtas(json);
-        } else {
-          const dataList = (json && Array.isArray(json.data)) ? json.data : [];
-          etas = dataList.map(item => item ? item.eta : null).filter(Boolean);
-        }
-
-        el1.textContent = formatTimeStr(etas[0]);
-        el2.textContent = formatTimeStr(etas[1]);
-      } catch (err) {
-        el1.textContent = "--:--";
-        el2.textContent = "--:--";
-      }
-    }
-
-    /* 專門合併 115 號線數據 */
-    async function updateCombined115() {
-      const el1 = document.getElementById('eta-115-1');
-      const el2 = document.getElementById('eta-115-2');
-      if (!el1 || !el2) return;
-
-      let allEtas = [];
-      const t = new Date().getTime();
-
-      try {
-        const resKmb = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/eta/7055FEADC58CB1F1/115/1?t=${t}`, { cache: 'no-store' });
-        const jsonKmb = await resKmb.json();
-        if (jsonKmb && Array.isArray(jsonKmb.data)) {
-          jsonKmb.data.forEach(item => {
-            if (item && item.eta && !isNaN(new Date(item.eta).getTime())) allEtas.push({ time: new Date(item.eta), company: '九' });
+        const url = `bus_data.json?_t=${new Date().getTime()}`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const routes = ['12A', '7B', '297', '15', '269B', 'GMB2', 'GMB2A', '8A', '8P', '115', '115CTB'];
+          routes.forEach(route => {
+            if (data[route]) {
+              document.getElementById(`${route}-1`).innerText = data[route][0];
+              document.getElementById(`${route}-2`).innerText = data[route][1];
+            }
           });
         }
-      } catch (e) {}
-
-      try {
-        const resCtb = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/eta/CTB/001477/115?t=${t}`, { cache: 'no-store' });
-        const jsonCtb = await resCtb.json();
-        if (jsonCtb && Array.isArray(jsonCtb.data)) {
-          jsonCtb.data.forEach(item => {
-            if (item && item.eta && !isNaN(new Date(item.eta).getTime())) allEtas.push({ time: new Date(item.eta), company: '城' });
-          });
-        }
-      } catch (e) {}
-
-      allEtas.sort((a, b) => a.time - b.time);
-
-      function renderEtaHTML(item) {
-        if (!item) return "--:--";
-        const hkTimeMs = item.time.getTime() + (8 * 3600000);
-        const hkDate = new Date(hkTimeMs);
-        const hrs = String(hkDate.getUTCHours()).padStart(2, '0');
-        const mins = String(hkDate.getUTCMinutes()).padStart(2, '0');
-        const badgeClass = item.company === '九' ? 'co-kmb' : 'co-ctb';
-        return `${hrs}:${mins}<span class="co-label ${badgeClass}">${item.company}</span>`;
-      }
-
-      el1.innerHTML = renderEtaHTML(allEtas[0]);
-      el2.innerHTML = renderEtaHTML(allEtas[1]);
+      } catch(e) {}
     }
-
-    function updateAllBuses() {
-      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/12A/1', 'eta-12a-1', 'eta-12a-2');
-      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/7B/1', 'eta-7b-1', 'eta-7b-2');
-      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/15/1', 'eta-15-1', 'eta-15-2');
-      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/297/1', 'eta-297-1', 'eta-297-2');
-      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/95FAB1D2AD752ECE/269B/1', 'eta-269b-1', 'eta-269b-2');
-
-      fetchETA('https://data.etagmb.gov.hk/eta/route-stop/2009246/1/1', 'eta-gmb2-1', 'eta-gmb2-2', true);
-      fetchETA('https://data.etagmb.gov.hk/eta/route-stop/2009247/1/1', 'eta-gmb2a-1', 'eta-gmb2a-2', true);
-      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/75D6E5952B41E1D2/8A/1', 'eta-8a-1', 'eta-8a-2');
-      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/75D6E5952B41E1D2/8P/1', 'eta-8p-1', 'eta-8p-2');
-      updateCombined115();
-
-      const now = new Date();
-      const hkTimeMs = now.getTime() + (8 * 3600000);
-      const hkDate = new Date(hkTimeMs);
-      const h = String(hkDate.getUTCHours()).padStart(2, '0');
-      const m = String(hkDate.getUTCMinutes()).padStart(2, '0');
-      const s = String(hkDate.getUTCSeconds()).padStart(2, '0');
-      document.getElementById('bus-last-update').textContent = `${h}:${m}:${s}`;
-    }
-
-    updateAllBuses();
-    setInterval(updateAllBuses, 30 * 1000); // 縮短至每 30 秒強制驅動一次更新
+    loadData();
+    setInterval(loadData, 30000); // 網頁端每 30 秒重新讀取 JSON，確保永遠最新
   </script>
 </body>
 </html>
