@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bus Widget Dashboard</title>
-  <!-- 必須載入 Google Fonts，解決 SenseCraft 截圖中文字變成亂碼的問題 -->
+  <!-- 載入 Google Fonts，解決中文字亂碼 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@700;900&display=swap" rel="stylesheet">
@@ -20,12 +20,11 @@
       height: 100%;
       overflow: hidden;
       background-color: #ffffff;
-      /* 強制應用中文字型 */
       font-family: 'Noto Sans HK', -apple-system, sans-serif;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 2px 4px; /* 緊湊邊距 */
+      padding: 2px 4px;
     }
 
     /* 區塊標題 */
@@ -45,7 +44,7 @@
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid #eaeaea;
-      height: calc(100% / 12); /* 動態適應元件高度 */
+      height: calc(100% / 12);
       min-height: 24px;
     }
 
@@ -163,101 +162,187 @@
   <div class="footer">巴士數據刷新時間: <span id="bus-last-update">--:--:--</span></div>
 
   <script>
-    /* 格式化時間 */
+    /* 格式化時間 HH:mm */
     function formatTimeStr(isoString) {
       if (!isoString) return "--:--";
+      if (typeof isoString === 'string' && /^\d{2}:\d{2}$/.test(isoString)) {
+        return isoString;
+      }
       const d = new Date(isoString);
-      if (isNaN(d.getTime())) return "--:--";
-      return d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Hong_Kong', hour12: false, hour: '2-digit', minute: '2-digit' });
+      if (isNaN(d.getTime())) {
+        const match = String(isoString).match(/(\d{2}):(\d{2})/);
+        if (match) return `${match[1]}:${match[2]}`;
+        return "--:--";
+      }
+      const hrs = String(d.getHours()).padStart(2, '0');
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      return `${hrs}:${mins}`;
     }
 
-    /* 安全抓取 API (帶 CORS Proxy 備援) */
-    async function safeFetchJSON(targetUrl) {
+    /* 專利專線小巴（GMB）高相容性時間戳解析器 */
+    function parseGmbEtas(json) {
+      let etas = [];
+      if (!json) return etas;
+
       try {
-        const res = await fetch(targetUrl);
-        if (res.ok) return await res.json();
-      } catch (e) {}
+        let items = [];
+        if (Array.isArray(json.data)) {
+          json.data.forEach(d => {
+            if (d && Array.isArray(d.eta)) {
+              items.push(...d.eta);
+            } else if (d && (d.timestamp || d.diff !== undefined)) {
+              items.push(d);
+            }
+          });
+        } else if (json.data && Array.isArray(json.data.eta)) {
+          items = json.data.eta;
+        } else if (json.data && (json.data.timestamp || json.data.diff !== undefined)) {
+          items = [json.data];
+        }
+
+        items.forEach(item => {
+          if (item.timestamp) {
+            etas.push(item.timestamp);
+          } else if (typeof item.diff === 'number') {
+            const target = new Date(Date.now() + item.diff * 60000);
+            const hrs = String(target.getHours()).padStart(2, '0');
+            const mins = String(target.getMinutes()).padStart(2, '0');
+            etas.push(`${hrs}:${mins}`);
+          }
+        });
+
+        if (etas.length === 0) {
+          const str = JSON.stringify(json);
+          const matches = str.match(/"timestamp"\s*:\s*"([^"]+)"/g);
+          if (matches) {
+            matches.forEach(m => {
+              const valMatch = m.match(/"timestamp"\s*:\s*"([^"]+)"/);
+              if (valMatch && valMatch[1]) etas.push(valMatch[1]);
+            });
+          }
+        }
+      } catch (err) {}
+      return etas;
+    }
+
+    /* 抓取九巴 / 小巴 到站 API (保留原本完全成功的代碼) */
+    async function fetchETA(url, elementId1, elementId2, isGMB = false) {
+      const el1 = document.getElementById(elementId1);
+      const el2 = document.getElementById(elementId2);
+      if (!el1 || !el2) return;
+
       try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-        const resProxy = await fetch(proxyUrl);
-        if (resProxy.ok) {
-          const proxyData = await resProxy.json();
-          return JSON.parse(proxyData.contents);
+        let json = null;
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            json = await res.json();
+          } else {
+            throw new Error(`HTTP ${res.status}`);
+          }
+        } catch (directErr) {
+          if (isGMB) {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            const resProxy = await fetch(proxyUrl);
+            json = await resProxy.json();
+          } else {
+            throw directErr;
+          }
+        }
+
+        let etas = [];
+        if (isGMB) {
+          etas = parseGmbEtas(json);
+        } else {
+          const dataList = (json && Array.isArray(json.data)) ? json.data : [];
+          etas = dataList.map(item => item ? item.eta : null).filter(Boolean);
+        }
+
+        el1.textContent = formatTimeStr(etas[0]);
+        el2.textContent = formatTimeStr(etas[1]);
+      } catch (err) {
+        el1.textContent = "--:--";
+        el2.textContent = "--:--";
+      }
+    }
+
+    /* 專門合併九巴同城巴 115 號線數據 */
+    async function updateCombined115() {
+      const el1 = document.getElementById('eta-115-1');
+      const el2 = document.getElementById('eta-115-2');
+      if (!el1 || !el2) return;
+
+      let allEtas = [];
+
+      try {
+        const resKmb = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/eta/7055FEADC58CB1F1/115/1');
+        const jsonKmb = await resKmb.json();
+        if (jsonKmb && Array.isArray(jsonKmb.data)) {
+          jsonKmb.data.forEach(item => {
+            if (item && item.eta) {
+              const d = new Date(item.eta);
+              if (!isNaN(d.getTime())) allEtas.push({ time: d, company: '九' });
+            }
+          });
         }
       } catch (e) {}
-      return null;
-    }
 
-    /* 抓取九巴 */
-    async function fetchKMB(stopId, route, el1, el2) {
-      const url = `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stopId}`;
-      const json = await safeFetchJSON(url);
-      if (json && Array.isArray(json.data)) {
-        const etas = json.data.filter(item => item.route === route && item.eta).map(i => i.eta);
-        if (etas[0]) document.getElementById(el1).textContent = formatTimeStr(etas[0]);
-        if (etas[1]) document.getElementById(el2).textContent = formatTimeStr(etas[1]);
-      }
-    }
+      try {
+        const resCtb = await fetch('https://rt.data.gov.hk/v1/transport/citybus-nwfb/eta/CTB/001477/115');
+        const jsonCtb = await resCtb.json();
+        if (jsonCtb && Array.isArray(jsonCtb.data)) {
+          jsonCtb.data.forEach(item => {
+            if (item && item.eta) {
+              const d = new Date(item.eta);
+              if (!isNaN(d.getTime())) allEtas.push({ time: d, company: '城' });
+            }
+          });
+        }
+      } catch (e) {}
 
-    /* 抓取小巴 */
-    async function fetchGMB(routeId, stopSeq, el1, el2) {
-      const url = `https://data.etagmb.gov.hk/eta/route-stop/${routeId}/1/${stopSeq}`;
-      const json = await safeFetchJSON(url);
-      if (json && json.data && Array.isArray(json.data.eta)) {
-        const etas = json.data.eta.map(i => i.timestamp).filter(Boolean);
-        if (etas[0]) document.getElementById(el1).textContent = formatTimeStr(etas[0]);
-        if (etas[1]) document.getElementById(el2).textContent = formatTimeStr(etas[1]);
-      }
-    }
+      allEtas.sort((a, b) => a.time - b.time);
 
-    /* 合併 115 聯營線 */
-    async function updateCombined115() {
-      let allEtas = [];
-      const jsonKmb = await safeFetchJSON('https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/1103A58F52D6CE51');
-      if (jsonKmb && Array.isArray(jsonKmb.data)) {
-        jsonKmb.data.filter(i => i.route === '115' && i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '九' }));
-      }
-      const jsonCtb = await safeFetchJSON('https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002422/115');
-      if (jsonCtb && Array.isArray(jsonCtb.data)) {
-        jsonCtb.data.filter(i => i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '城' }));
-      }
-
-      allEtas = allEtas.filter(i => !isNaN(i.time.getTime())).sort((a, b) => a.time - b.time);
-
-      function renderEta(item) {
+      function renderEtaHTML(item) {
         if (!item) return "--:--";
-        const tStr = item.time.toLocaleTimeString('en-GB', { timeZone: 'Asia/Hong_Kong', hour12: false, hour: '2-digit', minute: '2-digit' });
-        const badgeClass = item.co === '九' ? 'co-kmb' : 'co-ctb';
-        return `${tStr}<span class="co-label ${badgeClass}">${item.co}</span>`;
+        const hrs = String(item.time.getHours()).padStart(2, '0');
+        const mins = String(item.time.getMinutes()).padStart(2, '0');
+        const badgeClass = item.company === '九' ? 'co-kmb' : 'co-ctb';
+        return `${hrs}:${mins}<span class="co-label ${badgeClass}">${item.company}</span>`;
       }
 
-      if (allEtas[0]) document.getElementById('eta-115-1').innerHTML = renderEta(allEtas[0]);
-      if (allEtas[1]) document.getElementById('eta-115-2').innerHTML = renderEta(allEtas[1]);
+      el1.innerHTML = renderEtaHTML(allEtas[0]);
+      el2.innerHTML = renderEtaHTML(allEtas[1]);
     }
 
-    async function updateAllBuses() {
+    /* 更新所有巴士同小巴資料 (還原原本完全成功的 API 連結) */
+    function updateAllBuses() {
+      // 1. 紅磡南道 (九巴)
+      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/12A/1', 'eta-12a-1', 'eta-12a-2');
+      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/7B/1', 'eta-7b-1', 'eta-7b-2');
+      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/15/1', 'eta-15-1', 'eta-15-2');
+      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/297/1', 'eta-297-1', 'eta-297-2');
+      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/95FAB1D2AD752ECE/269B/1', 'eta-269b-1', 'eta-269b-2');
+
+      // 2. 黃埔花園 (小巴 + 九巴 + 聯營)
+      fetchETA('https://data.etagmb.gov.hk/eta/route-stop/2009246/1/1', 'eta-gmb2-1', 'eta-gmb2-2', true);
+      fetchETA('https://data.etagmb.gov.hk/eta/route-stop/2009247/1/1', 'eta-gmb2a-1', 'eta-gmb2a-2', true);
+      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/75D6E5952B41E1D2/8A/1', 'eta-8a-1', 'eta-8a-2');
+      fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/75D6E5952B41E1D2/8P/1', 'eta-8p-1', 'eta-8p-2');
+      updateCombined115();
+
       const now = new Date();
-      document.getElementById('bus-last-update').textContent = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Hong_Kong', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-      const hungHomSouth = '90BA441334E95B30';
-      const whampoa = '1103A58F52D6CE51';
-
-      await Promise.all([
-        fetchKMB(hungHomSouth, '12A', 'eta-12a-1', 'eta-12a-2'),
-        fetchKMB(hungHomSouth, '7B', 'eta-7b-1', 'eta-7b-2'),
-        fetchKMB(hungHomSouth, '15', 'eta-15-1', 'eta-15-2'),
-        fetchKMB(hungHomSouth, '297', 'eta-297-1', 'eta-297-2'),
-        fetchKMB(hungHomSouth, '269B', 'eta-269b-1', 'eta-269b-2'),
-        fetchKMB(whampoa, '8A', 'eta-8a-1', 'eta-8a-2'),
-        fetchKMB(whampoa, '8P', 'eta-8p-1', 'eta-8p-2'),
-        fetchGMB('2003233', '1', 'eta-gmb2-1', 'eta-gmb2-2'),
-        fetchGMB('2003234', '1', 'eta-gmb2a-1', 'eta-gmb2a-2'),
-        updateCombined115()
-      ]);
+      const busUpdateElem = document.getElementById('bus-last-update');
+      if (busUpdateElem) {
+        const hrs = String(now.getHours()).padStart(2, '0');
+        const mins = String(now.getMinutes()).padStart(2, '0');
+        const secs = String(now.getSeconds()).padStart(2, '0');
+        busUpdateElem.textContent = `${hrs}:${mins}:${secs}`;
+      }
     }
 
-    // 啟動抓取
+    // 初始化與定時器
     updateAllBuses();
+    setInterval(updateAllBuses, 60 * 1000);
   </script>
 </body>
 </html>
