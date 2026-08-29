@@ -114,47 +114,62 @@
       return d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Hong_Kong', hour12: false, hour: '2-digit', minute: '2-digit' });
     }
 
+    // 安全抓取 API (帶 CORS Proxy 繞過機制)
+    async function safeFetchJSON(targetUrl) {
+      // 1. 嘗試直連
+      try {
+        const res = await fetch(targetUrl);
+        if (res.ok) return await res.json();
+      } catch (e) {}
+
+      // 2. 直連失敗時使用 AllOrigins CORS 代理
+      try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+        const resProxy = await fetch(proxyUrl);
+        if (resProxy.ok) {
+          const proxyData = await resProxy.json();
+          return JSON.parse(proxyData.contents);
+        }
+      } catch (e) {}
+
+      return null;
+    }
+
+    // 抓取九巴
     async function fetchKMB(stopId, route, el1, el2) {
-      try {
-        const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stopId}`);
-        const json = await res.json();
-        if (json && Array.isArray(json.data)) {
-          const etas = json.data.filter(item => item.route === route && item.eta).map(i => i.eta);
-          document.getElementById(el1).textContent = formatTimeStr(etas[0]);
-          document.getElementById(el2).textContent = formatTimeStr(etas[1]);
-        }
-      } catch (e) {}
+      const url = `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stopId}`;
+      const json = await safeFetchJSON(url);
+      if (json && Array.isArray(json.data)) {
+        const etas = json.data.filter(item => item.route === route && item.eta).map(i => i.eta);
+        if (etas[0]) document.getElementById(el1).textContent = formatTimeStr(etas[0]);
+        if (etas[1]) document.getElementById(el2).textContent = formatTimeStr(etas[1]);
+      }
     }
 
+    // 抓取專線小巴
     async function fetchGMB(routeId, stopSeq, el1, el2) {
-      try {
-        const res = await fetch(`https://data.etagmb.gov.hk/eta/route-stop/${routeId}/1/${stopSeq}`);
-        const json = await res.json();
-        if (json && json.data && Array.isArray(json.data.eta)) {
-          const etas = json.data.eta.map(i => i.timestamp).filter(Boolean);
-          document.getElementById(el1).textContent = formatTimeStr(etas[0]);
-          document.getElementById(el2).textContent = formatTimeStr(etas[1]);
-        }
-      } catch (e) {}
+      const url = `https://data.etagmb.gov.hk/eta/route-stop/${routeId}/1/${stopSeq}`;
+      const json = await safeFetchJSON(url);
+      if (json && json.data && Array.isArray(json.data.eta)) {
+        const etas = json.data.eta.map(i => i.timestamp).filter(Boolean);
+        if (etas[0]) document.getElementById(el1).textContent = formatTimeStr(etas[0]);
+        if (etas[1]) document.getElementById(el2).textContent = formatTimeStr(etas[1]);
+      }
     }
 
+    // 合併 115 線 (九巴 + 城巴)
     async function updateCombined115() {
       let allEtas = [];
-      try {
-        const resKmb = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/1103A58F52D6CE51');
-        const jsonKmb = await resKmb.json();
-        if (jsonKmb && Array.isArray(jsonKmb.data)) {
-          jsonKmb.data.filter(i => i.route === '115' && i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '九' }));
-        }
-      } catch (e) {}
 
-      try {
-        const resCtb = await fetch('https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002422/115');
-        const jsonCtb = await resCtb.json();
-        if (jsonCtb && Array.isArray(jsonCtb.data)) {
-          jsonCtb.data.filter(i => i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '城' }));
-        }
-      } catch (e) {}
+      const jsonKmb = await safeFetchJSON('https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/1103A58F52D6CE51');
+      if (jsonKmb && Array.isArray(jsonKmb.data)) {
+        jsonKmb.data.filter(i => i.route === '115' && i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '九' }));
+      }
+
+      const jsonCtb = await safeFetchJSON('https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002422/115');
+      if (jsonCtb && Array.isArray(jsonCtb.data)) {
+        jsonCtb.data.filter(i => i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '城' }));
+      }
 
       allEtas = allEtas.filter(i => !isNaN(i.time.getTime())).sort((a, b) => a.time - b.time);
 
@@ -165,30 +180,33 @@
         return `${tStr}<span class="absolute right-2 text-[10px] font-bold px-1 py-0.5 rounded leading-none ${badgeClass}">${item.co}</span>`;
       }
 
-      if (allEtas.length > 0) document.getElementById('eta-115-1').innerHTML = renderEta(allEtas[0]);
-      if (allEtas.length > 1) document.getElementById('eta-115-2').innerHTML = renderEta(allEtas[1]);
+      if (allEtas[0]) document.getElementById('eta-115-1').innerHTML = renderEta(allEtas[0]);
+      if (allEtas[1]) document.getElementById('eta-115-2').innerHTML = renderEta(allEtas[1]);
     }
 
-    function updateAllBuses() {
+    async function updateAllBuses() {
       const now = new Date();
       document.getElementById('bus-last-update').textContent = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Hong_Kong', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
       const hungHomSouth = '90BA441334E95B30';
       const whampoa = '1103A58F52D6CE51';
 
-      fetchKMB(hungHomSouth, '12A', 'eta-12a-1', 'eta-12a-2');
-      fetchKMB(hungHomSouth, '7B', 'eta-7b-1', 'eta-7b-2');
-      fetchKMB(hungHomSouth, '15', 'eta-15-1', 'eta-15-2');
-      fetchKMB(hungHomSouth, '297', 'eta-297-1', 'eta-297-2');
-      fetchKMB(hungHomSouth, '269B', 'eta-269b-1', 'eta-269b-2');
-      fetchKMB(whampoa, '8A', 'eta-8a-1', 'eta-8a-2');
-      fetchKMB(whampoa, '8P', 'eta-8p-1', 'eta-8p-2');
-      fetchGMB('2003233', '1', 'eta-gmb2-1', 'eta-gmb2-2');
-      fetchGMB('2003234', '1', 'eta-gmb2a-1', 'eta-gmb2a-2');
-      updateCombined115();
+      await Promise.all([
+        fetchKMB(hungHomSouth, '12A', 'eta-12a-1', 'eta-12a-2'),
+        fetchKMB(hungHomSouth, '7B', 'eta-7b-1', 'eta-7b-2'),
+        fetchKMB(hungHomSouth, '15', 'eta-15-1', 'eta-15-2'),
+        fetchKMB(hungHomSouth, '297', 'eta-297-1', 'eta-297-2'),
+        fetchKMB(hungHomSouth, '269B', 'eta-269b-1', 'eta-269b-2'),
+        fetchKMB(whampoa, '8A', 'eta-8a-1', 'eta-8a-2'),
+        fetchKMB(whampoa, '8P', 'eta-8p-1', 'eta-8p-2'),
+        fetchGMB('2003233', '1', 'eta-gmb2-1', 'eta-gmb2-2'),
+        fetchGMB('2003234', '1', 'eta-gmb2a-1', 'eta-gmb2a-2'),
+        updateCombined115()
+      ]);
     }
 
     updateAllBuses();
+    setInterval(updateAllBuses, 60 * 1000);
   </script>
 </body>
 </html>
