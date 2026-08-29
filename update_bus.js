@@ -1,42 +1,51 @@
 const fs = require('fs');
 const https = require('https');
+const http = require('http');
 
-function fetchJSON(url) {
+// 🌟 終極抓取模組：支援自動跟隨 301/302 Redirect，突破小巴 API 限制
+function fetchJSON(urlStr, redirects = 3) {
   return new Promise((resolve) => {
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } }, (res) => {
+    const parsed = new URL(urlStr);
+    const client = parsed.protocol === 'http:' ? http : https;
+    
+    client.get(urlStr, { 
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': 'application/json'
+      } 
+    }, (res) => {
+      // 遇到轉址，自動追蹤
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
+        let redirectUrl = res.headers.location;
+        if (!redirectUrl.startsWith('http')) redirectUrl = new URL(redirectUrl, urlStr).href;
+        return resolve(fetchJSON(redirectUrl, redirects - 1));
+      }
+      
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try { resolve(JSON.parse(data)); } catch (e) { resolve(null); }
+        try { 
+          resolve(JSON.parse(data)); 
+        } catch (e) { 
+          resolve({ _raw: data.substring(0, 100), _status: res.statusCode }); 
+        }
       });
-    }).on('error', () => resolve(null));
+    }).on('error', (e) => resolve({ _error: e.message }));
   });
 }
 
-// 🌟 升級版：4 重代理伺服器輪詢，專門破解綠色小巴 API 封鎖
+// 代理備援機制 (改用 .win/raw 直接獲取 JSON)
 async function fetchAPI(url) {
-  // 1. 直連
   let res = await fetchJSON(url);
   if (res && res.data) return res;
   
-  // 2. AllOrigins (使用 .contents 安全解析)
-  let proxy1 = await fetchJSON(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-  if (proxy1 && proxy1.contents) {
-    try {
-      let parsed = JSON.parse(proxy1.contents);
-      if (parsed.data) return parsed;
-    } catch(e) {}
-  }
+  let proxy1 = await fetchJSON(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+  if (proxy1 && proxy1.data) return proxy1;
   
-  // 3. CorsProxy
   let proxy2 = await fetchJSON(`https://corsproxy.io/?${encodeURIComponent(url)}`);
   if (proxy2 && proxy2.data) return proxy2;
-
-  // 4. CodeTabs 終極後備
-  let proxy3 = await fetchJSON(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
-  if (proxy3 && proxy3.data) return proxy3;
   
-  return null;
+  return res || proxy1 || { _error: "All requests failed" };
 }
 
 function parseTime(etaStr) {
@@ -55,13 +64,12 @@ function getBusTimes(data) {
   return [etas[0] || '--', etas[1] || '--'];
 }
 
-// 🌟 升級版：更強嘅綠色小巴數據解析防呆機制
 function getGMBTimes(data) {
   if (!data || !data.data || !Array.isArray(data.data)) return ['--', '--'];
   
-  // 自動尋找第一個包含 eta 陣列嘅數據點 (防止 API 變陣)
+  // 防呆機制：搵出真正有時間數據嘅陣列
   const validStop = data.data.find(item => item.eta && Array.isArray(item.eta) && item.eta.length > 0);
-  if (!validStop) return ['--', '--'];
+  if (!validStop) return ['--', '--']; 
   
   const etas = validStop.eta
     .filter(item => item.timestamp)
@@ -90,6 +98,12 @@ async function fetchAllBus() {
   const results = {};
   for (const [route, url] of Object.entries(urls)) {
     const rawData = await fetchAPI(url);
+    
+    // 📸 照妖鏡機制：專門記錄 GMB2 發生咩事
+    if (route === 'GMB2') {
+      results.debug_gmb_response = typeof rawData === 'object' ? JSON.stringify(rawData).substring(0, 150) : 'unknown';
+    }
+
     if (route.startsWith('GMB')) {
       results[route] = getGMBTimes(rawData);
     } else {
@@ -97,7 +111,6 @@ async function fetchAllBus() {
     }
   }
 
-  // 取得香港時間 (包含秒數)
   const hkTime = new Date(Date.now() + 8 * 3600000);
   const h = String(hkTime.getUTCHours()).padStart(2, '0');
   const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
