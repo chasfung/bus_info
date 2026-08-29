@@ -2,33 +2,19 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1024, height=758, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Kobo Nia Smart Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bus Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* 針對 E-Ink 螢幕的最佳化高對比度樣式 */
     body {
-      width: 1024px;
-      height: 758px;
       margin: 0;
-      padding: 0;
-      overflow: hidden;
+      padding: 16px;
       background-color: #ffffff;
       color: #000000;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       user-select: none;
     }
 
-    /* 翻頁時鐘數字盒 */
-    .flip-card {
-      background-color: #1a1a1a;
-      color: #ffffff;
-      border-radius: 12px;
-      font-weight: 800;
-      letter-spacing: -1px;
-    }
-
-    /* 路線 Badge 樣式 */
     .route-badge {
       display: inline-flex;
       align-items: center;
@@ -40,187 +26,87 @@
 
     .badge-kmb { background-color: #000000; }
     .badge-gmb { background-color: #38b000; }
-
-    /* E-Ink 殘影消除閃爍層 */
-    #ghost-clear {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background-color: #000000;
-      z-index: 9999;
-      display: none;
-    }
   </style>
 </head>
-<body class="flex flex-row p-4 box-border">
+<body class="w-full h-full flex flex-col justify-between box-border">
 
-  <div id="ghost-clear"></div>
-
-  <!-- 左欄：時鐘、天氣、港鐵 (寬度 480px) -->
-  <div class="w-[480px] h-full flex flex-col justify-between pr-4 border-r-2 border-gray-300">
-    
-    <div>
-      <div class="flex flex-row justify-between items-center mb-2">
-        <div class="flex flex-col">
-          <div class="flex items-baseline space-x-2">
-            <span id="date-str" class="text-4xl font-extrabold tracking-tight">--/--</span>
-            <span id="day-str" class="text-2xl font-bold">---</span>
-          </div>
-          <div class="flex items-center space-x-2 mt-2">
-            <svg id="weather-icon" class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
-            </svg>
-            <span id="temp-str" class="text-3xl font-extrabold">--.- °C</span>
-          </div>
-        </div>
-
-        <div class="flex space-x-2">
-          <div id="clock-hour" class="flip-card w-[85px] h-[95px] text-5xl flex items-center justify-center">--</div>
-          <div id="clock-min" class="flip-card w-[85px] h-[95px] text-5xl flex items-center justify-center">--</div>
-        </div>
-      </div>
-
-      <hr class="border-t-2 border-black my-2" />
-
-      <div class="mb-3">
-        <h3 id="weather-title" class="text-center font-bold text-lg underline underline-offset-4 mb-2">本港地區天氣預測</h3>
-        <p id="weather-desc" class="text-base font-semibold text-gray-800 leading-snug h-[95px] overflow-hidden">
-          正在載入本港天氣預報資訊...
-        </p>
-      </div>
-    </div>
-
-    <div class="mt-auto">
-      <div class="flex items-center space-x-2 mb-2">
-        <svg class="w-6 h-6 text-black" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-        </svg>
-        <span class="font-extrabold text-lg">港鐵即時班次預估</span>
-      </div>
-
-      <div class="space-y-1.5 text-sm font-bold">
-        <div class="flex justify-between items-center p-1.5 bg-gray-100 rounded-md border border-gray-400">
-          <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 bg-green-700 text-white rounded text-xs font-bold">觀塘綫</span>
-            <span>往 調景嶺</span>
-          </div>
-          <span id="mtr-ktl" class="font-extrabold">計算中...</span>
-        </div>
-        <div class="flex justify-between items-center p-1.5 bg-gray-100 rounded-md border border-gray-400">
-          <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 bg-cyan-700 text-white rounded text-xs font-bold">東鐵綫</span>
-            <span>往 金鐘</span>
-          </div>
-          <span id="mtr-eal-dn" class="font-extrabold">計算中...</span>
-        </div>
-        <div class="flex justify-between items-center p-1.5 bg-gray-100 rounded-md border border-gray-400">
-          <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 bg-cyan-700 text-white rounded text-xs font-bold">東鐵綫</span>
-            <span>往 上水/邊境</span>
-          </div>
-          <span id="mtr-eal-up" class="font-extrabold">計算中...</span>
-        </div>
-        <div class="flex justify-between items-center p-1.5 bg-gray-100 rounded-md border border-gray-400">
-          <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 bg-amber-800 text-white rounded text-xs font-bold">屯馬綫</span>
-            <span>往 屯門</span>
-          </div>
-          <span id="mtr-tml-dn" class="font-extrabold">計算中...</span>
-        </div>
-        <div class="flex justify-between items-center p-1.5 bg-gray-100 rounded-md border border-gray-400">
-          <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 bg-amber-800 text-white rounded text-xs font-bold">屯馬綫</span>
-            <span>往 烏溪沙</span>
-          </div>
-          <span id="mtr-tml-up" class="font-extrabold">計算中...</span>
-        </div>
-      </div>
-
-      <div class="text-right text-xs font-bold text-gray-600 mt-2">
-        最後更新: <span id="last-update-time">--:--</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 右欄：巴士與小巴資訊 (寬度 512px) -->
-  <div class="w-[512px] h-full flex flex-col justify-between pl-4">
-    
+  <div class="space-y-4">
     <!-- 第一組：紅磡南道 -->
     <div>
       <div class="mb-2 pb-1 border-b-2 border-black">
         <h2 class="text-2xl font-black">紅磡南道</h2>
       </div>
 
-      <div class="space-y-0.5">
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">12A</span>
-          <span id="eta-12a-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-12a-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
+      <div class="space-y-1">
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">12A</span>
+          <span id="eta-12a-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-12a-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
         </div>
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">7B</span>
-          <span id="eta-7b-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-7b-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">7B</span>
+          <span id="eta-7b-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-7b-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
         </div>
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">15</span>
-          <span id="eta-15-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-15-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">15</span>
+          <span id="eta-15-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-15-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
         </div>
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">297</span>
-          <span id="eta-297-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-297-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">297</span>
+          <span id="eta-297-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-297-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
         </div>
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">269B</span>
-          <span id="eta-269b-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-269b-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">269B</span>
+          <span id="eta-269b-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-269b-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
         </div>
       </div>
     </div>
 
     <!-- 第二組：黃埔花園 -->
-    <div class="mt-1">
-      <h2 class="text-2xl font-black mb-2 pb-0.5 border-b-2 border-black">黃埔花園</h2>
-
-      <div class="space-y-0.5">
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-gmb text-xl w-[110px] py-0.5">2</span>
-          <span id="eta-gmb2-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-gmb2-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-        </div>
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-gmb text-xl w-[110px] py-0.5">2A</span>
-          <span id="eta-gmb2a-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-gmb2a-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-        </div>
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">8A</span>
-          <span id="eta-8a-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-8a-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-        </div>
-        <div class="flex items-center justify-between py-0.5 border-b border-gray-200">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">8P</span>
-          <span id="eta-8p-1" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-          <span id="eta-8p-2" class="text-2xl font-extrabold w-[120px] text-center">--:--</span>
-        </div>
-        <div class="flex items-center justify-between py-0.5">
-          <span class="route-badge badge-kmb text-xl w-[110px] py-0.5">115</span>
-          <span id="eta-115-1" class="text-2xl font-extrabold w-[120px] text-center relative flex items-center justify-center">--:--</span>
-          <span id="eta-115-2" class="text-2xl font-extrabold w-[120px] text-center relative flex items-center justify-center">--:--</span>
-        </div>
+    <div>
+      <div class="mb-2 pb-1 border-b-2 border-black">
+        <h2 class="text-2xl font-black">黃埔花園</h2>
       </div>
 
-      <div class="text-right text-[10px] font-bold text-gray-500 mt-2">
-        巴士數據刷新時間: <span id="bus-last-update">--:--:--</span>
+      <div class="space-y-1">
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-gmb text-xl w-[110px] py-1">2</span>
+          <span id="eta-gmb2-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-gmb2-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-gmb text-xl w-[110px] py-1">2A</span>
+          <span id="eta-gmb2a-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-gmb2a-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">8A</span>
+          <span id="eta-8a-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-8a-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-gray-200">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">8P</span>
+          <span id="eta-8p-1" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+          <span id="eta-8p-2" class="text-2xl font-extrabold w-[140px] text-center">--:--</span>
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <span class="route-badge badge-kmb text-xl w-[110px] py-1">115</span>
+          <span id="eta-115-1" class="text-2xl font-extrabold w-[140px] text-center relative flex items-center justify-center">--:--</span>
+          <span id="eta-115-2" class="text-2xl font-extrabold w-[140px] text-center relative flex items-center justify-center">--:--</span>
+        </div>
       </div>
     </div>
+  </div>
 
+  <div class="text-right text-xs font-bold text-gray-500 mt-4">
+    巴士數據刷新時間: <span id="bus-last-update">--:--:--</span>
   </div>
 
   <script>
-    /* 格式化 ISO 時間為 HH:mm (香港 24 小時制) */
     function formatTimeStr(isoString) {
       if (!isoString) return "--:--";
       const d = new Date(isoString);
@@ -228,70 +114,56 @@
       return d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Hong_Kong', hour12: false, hour: '2-digit', minute: '2-digit' });
     }
 
-    /* 即時更新日期與翻頁時鐘 */
-    function updateLiveClock() {
-      const now = new Date();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const date = String(now.getDate()).padStart(2, '0');
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-
-      document.getElementById('date-str').textContent = `${month}/${date}`;
-      document.getElementById('day-str').textContent = days[now.getDay()];
-      document.getElementById('clock-hour').textContent = hours;
-      document.getElementById('clock-min').textContent = minutes;
-      document.getElementById('last-update-time').textContent = `${hours}:${minutes}`;
+    async function fetchAPI(url) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) return await res.json();
+      } catch (e) {}
+      try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const resProxy = await fetch(proxyUrl);
+        if (resProxy.ok) return await resProxy.json();
+      } catch (e) {}
+      return null;
     }
 
-    /* 安全地抓取並更新九巴數據 */
     async function fetchKMB(stopId, route, el1, el2) {
       const url = `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stopId}`;
-      try {
-        const res = await fetch(url);
-        const json = await res.json();
-        const etas = json.data.filter(item => item.route === route).map(i => i.eta).filter(Boolean);
+      const json = await fetchAPI(url);
+      if (json && Array.isArray(json.data)) {
+        const etas = json.data.filter(item => item.route === route && item.eta).map(i => i.eta);
         document.getElementById(el1).textContent = formatTimeStr(etas[0]);
         document.getElementById(el2).textContent = formatTimeStr(etas[1]);
-      } catch (err) {
+      } else {
         document.getElementById(el1).textContent = "--:--";
         document.getElementById(el2).textContent = "--:--";
       }
     }
 
-    /* 安全地抓取小巴數據 */
     async function fetchGMB(routeId, stopSeq, el1, el2) {
       const url = `https://data.etagmb.gov.hk/eta/route-stop/${routeId}/1/${stopSeq}`;
-      try {
-        const res = await fetch(url);
-        const json = await res.json();
-        const etas = (json.data && json.data.eta) ? json.data.eta.map(i => i.timestamp).filter(Boolean) : [];
-        document.getElementById(el1).textContent = formatTimeStr(etas[0]);
-        document.getElementById(el2).textContent = formatTimeStr(etas[1]);
-      } catch (err) {
-        document.getElementById(el1).textContent = "--:--";
-        document.getElementById(el2).textContent = "--:--";
+      const json = await fetchAPI(url);
+      let etas = [];
+      if (json && json.data && Array.isArray(json.data.eta)) {
+        etas = json.data.eta.map(i => i.timestamp).filter(Boolean);
       }
+      document.getElementById(el1).textContent = formatTimeStr(etas[0]);
+      document.getElementById(el2).textContent = formatTimeStr(etas[1]);
     }
 
-    /* 專門合併 115 號線數據 (九巴+城巴) */
     async function updateCombined115() {
       let allEtas = [];
-      try {
-        const resKmb = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/1103A58F52D6CE51');
-        const jsonKmb = await resKmb.json();
-        const kmbEtas = jsonKmb.data.filter(item => item.route === '115' && item.eta);
-        kmbEtas.forEach(item => allEtas.push({ time: new Date(item.eta), co: '九' }));
-      } catch (e) {}
+      const jsonKmb = await fetchAPI('https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/1103A58F52D6CE51');
+      if (jsonKmb && Array.isArray(jsonKmb.data)) {
+        jsonKmb.data.filter(i => i.route === '115' && i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '九' }));
+      }
 
-      try {
-        const resCtb = await fetch('https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002422/115');
-        const jsonCtb = await resCtb.json();
-        const ctbEtas = jsonCtb.data.filter(item => item.eta);
-        ctbEtas.forEach(item => allEtas.push({ time: new Date(item.eta), co: '城' }));
-      } catch (e) {}
+      const jsonCtb = await fetchAPI('https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002422/115');
+      if (jsonCtb && Array.isArray(jsonCtb.data)) {
+        jsonCtb.data.filter(i => i.eta).forEach(i => allEtas.push({ time: new Date(i.eta), co: '城' }));
+      }
 
-      allEtas = allEtas.filter(item => !isNaN(item.time.getTime())).sort((a, b) => a.time - b.time);
+      allEtas = allEtas.filter(i => !isNaN(i.time.getTime())).sort((a, b) => a.time - b.time);
 
       function renderEta(item) {
         if (!item) return "--:--";
@@ -304,95 +176,29 @@
       document.getElementById('eta-115-2').innerHTML = renderEta(allEtas[1]);
     }
 
-    function updateAllBuses() {
-      // 1. 紅磡南道 (Stop ID: 90BA441334E95B30)
+    async function updateAllBuses() {
       const hungHomSouth = '90BA441334E95B30';
-      fetchKMB(hungHomSouth, '12A', 'eta-12a-1', 'eta-12a-2');
-      fetchKMB(hungHomSouth, '7B', 'eta-7b-1', 'eta-7b-2');
-      fetchKMB(hungHomSouth, '15', 'eta-15-1', 'eta-15-2');
-      fetchKMB(hungHomSouth, '297', 'eta-297-1', 'eta-297-2');
-      fetchKMB(hungHomSouth, '269B', 'eta-269b-1', 'eta-269b-2');
-
-      // 2. 黃埔花園 (Stop ID: 1103A58F52D6CE51)
       const whampoa = '1103A58F52D6CE51';
-      fetchKMB(whampoa, '8A', 'eta-8a-1', 'eta-8a-2');
-      fetchKMB(whampoa, '8P', 'eta-8p-1', 'eta-8p-2');
-      fetchGMB('2003233', '1', 'eta-gmb2-1', 'eta-gmb2-2'); // 2 號小巴
-      fetchGMB('2003234', '1', 'eta-gmb2a-1', 'eta-gmb2a-2'); // 2A 號小巴
-      updateCombined115();
+
+      await Promise.all([
+        fetchKMB(hungHomSouth, '12A', 'eta-12a-1', 'eta-12a-2'),
+        fetchKMB(hungHomSouth, '7B', 'eta-7b-1', 'eta-7b-2'),
+        fetchKMB(hungHomSouth, '15', 'eta-15-1', 'eta-15-2'),
+        fetchKMB(hungHomSouth, '297', 'eta-297-1', 'eta-297-2'),
+        fetchKMB(hungHomSouth, '269B', 'eta-269b-1', 'eta-269b-2'),
+        fetchKMB(whampoa, '8A', 'eta-8a-1', 'eta-8a-2'),
+        fetchKMB(whampoa, '8P', 'eta-8p-1', 'eta-8p-2'),
+        fetchGMB('2003233', '1', 'eta-gmb2-1', 'eta-gmb2-2'),
+        fetchGMB('2003234', '1', 'eta-gmb2a-1', 'eta-gmb2a-2'),
+        updateCombined115()
+      ]);
 
       const now = new Date();
       document.getElementById('bus-last-update').textContent = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Hong_Kong', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
-    async function fetchMTR(line, station) {
-      const url = `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${line}&sta=${station}`;
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.status === 1 && data.data[`${line}-${station}`]) {
-          return data.data[`${line}-${station}`];
-        }
-      } catch (e) {}
-      return null;
-    }
-
-    function calculateFrequency(trainList) {
-      if (!trainList || trainList.length < 2) return (trainList && trainList.length === 1) ? "約--分一班" : "暫無班次";
-      const t1 = parseInt(trainList[0].ttnt);
-      const t2 = parseInt(trainList[1].ttnt);
-      return (!isNaN(t1) && !isNaN(t2) && Math.abs(t2 - t1) > 0) ? `約 ${Math.abs(t2 - t1)} 分鐘一班` : "約--分一班";
-    }
-
-    async function updateMTRData() {
-      const ktlWha = await fetchMTR('KTL', 'WHA');
-      if (ktlWha && ktlWha.UP) document.getElementById('mtr-ktl').textContent = calculateFrequency(ktlWha.UP);
-
-      const ealHuh = await fetchMTR('EAL', 'HUH');
-      if (ealHuh) {
-        if (ealHuh.DOWN) document.getElementById('mtr-eal-dn').textContent = calculateFrequency(ealHuh.DOWN);
-        if (ealHuh.UP) document.getElementById('mtr-eal-up').textContent = calculateFrequency(ealHuh.UP);
-      }
-
-      const tmlHuh = await fetchMTR('TML', 'HUH');
-      if (tmlHuh) {
-        if (tmlHuh.UP) document.getElementById('mtr-tml-dn').textContent = calculateFrequency(tmlHuh.UP);
-        if (tmlHuh.DOWN) document.getElementById('mtr-tml-up').textContent = calculateFrequency(tmlHuh.DOWN);
-      }
-    }
-
-    async function updateWeatherData() {
-      try {
-        const resRhr = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc');
-        const jsonRhr = await resRhr.json();
-        const tempData = jsonRhr.temperature?.data;
-        const temp = (tempData && tempData[1] !== undefined) ? tempData[1].value : (tempData?.[0]?.value || '--.-');
-        document.getElementById('temp-str').textContent = `${temp} °C`;
-
-        const resFlw = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=flw&lang=tc');
-        const jsonFlw = await resFlw.json();
-        if (jsonFlw.forecastPeriod) document.getElementById('weather-title').textContent = jsonFlw.forecastPeriod;
-        document.getElementById('weather-desc').textContent = jsonFlw.forecastDesc || jsonFlw.generalSituation || '暫無預報資料。';
-      } catch (e) {}
-    }
-
-    function clearEInkGhosting() {
-      const el = document.getElementById('ghost-clear');
-      if (!el) return;
-      el.style.display = 'block';
-      setTimeout(() => el.style.display = 'none', 600);
-    }
-
-    updateLiveClock();
     updateAllBuses();
-    updateMTRData();
-    updateWeatherData();
-
-    setInterval(updateLiveClock, 1000);              
-    setInterval(updateAllBuses, 1 * 60 * 1000);       
-    setInterval(updateMTRData, 3 * 60 * 1000);        
-    setInterval(updateWeatherData, 10 * 60 * 1000);   
-    setInterval(clearEInkGhosting, 15 * 60 * 1000);   
+    setInterval(updateAllBuses, 60 * 1000);
   </script>
 </body>
 </html>
