@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Whampoa Bus Dashboard</title>
+  <title>Bus Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@700;900&display=swap" rel="stylesheet">
@@ -24,16 +24,45 @@
       flex-direction: column;
       justify-content: space-between;
       height: 100%;
-      padding: 4px 8px;
+      padding: 4px 6px;
     }
 
-    .section-header {
-      font-size: 20px;
-      font-weight: 900;
-      color: #000000;
-      margin-bottom: 4px;
+    /* 頂部車站區塊標題與 Header */
+    .station-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
       border-bottom: 2px solid #000000;
       padding-bottom: 2px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+
+    .station-name {
+      font-size: 16px;
+      font-weight: 900;
+      color: #000000;
+    }
+
+    .header-labels {
+      display: flex;
+      gap: 16px;
+      padding-right: 20px;
+    }
+
+    .header-tag {
+      font-size: 10px;
+      font-weight: 900;
+      color: #000000;
+      border: 1px solid #000000;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 0.9;
     }
 
     .bus-table {
@@ -42,8 +71,8 @@
     }
 
     .bus-row {
-      border-bottom: 1px solid #e0e0e0;
-      height: 38px;
+      border-bottom: 1px solid #f0f0f0;
+      height: 32px;
     }
 
     .route-cell {
@@ -53,13 +82,13 @@
 
     .route-badge {
       display: inline-block;
-      width: 80px;
+      width: 70px;
       text-align: center;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 900;
       color: #ffffff;
-      padding: 3px 0;
-      border-radius: 8px;
+      padding: 2px 0;
+      border-radius: 6px;
     }
 
     .bg-black { background-color: #000000; }
@@ -68,28 +97,28 @@
     .eta-cell {
       width: 37.5%;
       text-align: center;
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 900;
       color: #000000;
       vertical-align: middle;
     }
 
     .co-badge {
-      font-size: 11px;
+      font-size: 10px;
       background-color: #000000;
       color: #ffffff;
-      border-radius: 4px;
-      padding: 1px 4px;
-      margin-left: 3px;
+      border-radius: 3px;
+      padding: 0 3px;
+      margin-left: 2px;
       vertical-align: middle;
     }
 
     .footer-time {
-      font-size: 11px;
+      font-size: 10px;
       color: #666666;
       text-align: right;
       font-weight: 700;
-      margin-top: 4px;
+      margin-top: 2px;
     }
   </style>
 </head>
@@ -97,7 +126,47 @@
 
   <div class="container">
     <div>
-      <div class="section-header">黃埔花園</div>
+      <!-- 1. 紅磡南道 區塊 -->
+      <div class="station-header">
+        <div class="station-name">紅磡南道</div>
+        <div class="header-labels">
+          <div class="header-tag">COMING<br>BUS</div>
+          <div class="header-tag">NEXT<br>BUS</div>
+        </div>
+      </div>
+
+      <table class="bus-table">
+        <tr class="bus-row">
+          <td class="route-cell"><span class="route-badge bg-black">12A</span></td>
+          <td class="eta-cell" id="r12a-eta1">--:--</td>
+          <td class="eta-cell" id="r12a-eta2">--:--</td>
+        </tr>
+        <tr class="bus-row">
+          <td class="route-cell"><span class="route-badge bg-black">7B</span></td>
+          <td class="eta-cell" id="r7b-eta1">--:--</td>
+          <td class="eta-cell" id="r7b-eta2">--:--</td>
+        </tr>
+        <tr class="bus-row">
+          <td class="route-cell"><span class="route-badge bg-black">297</span></td>
+          <td class="eta-cell" id="r297-eta1">--:--</td>
+          <td class="eta-cell" id="r297-eta2">--:--</td>
+        </tr>
+        <tr class="bus-row">
+          <td class="route-cell"><span class="route-badge bg-black">15</span></td>
+          <td class="eta-cell" id="r15-eta1">--:--</td>
+          <td class="eta-cell" id="r15-eta2">--:--</td>
+        </tr>
+        <tr class="bus-row">
+          <td class="route-cell"><span class="route-badge bg-black">269B</span></td>
+          <td class="eta-cell" id="r269b-eta1">--:--</td>
+          <td class="eta-cell" id="r269b-eta2">--:--</td>
+        </tr>
+      </table>
+
+      <!-- 2. 黃埔花園 區塊 -->
+      <div class="station-header" style="margin-top: 8px;">
+        <div class="station-name">黃埔花園</div>
+      </div>
 
       <table class="bus-table">
         <tr class="bus-row">
@@ -144,12 +213,12 @@
       });
     }
 
-    // 1. 九巴 KMB API (8A, 8P, 115)
+    // 1. 抓取九巴 API
     async function fetchKMB(stopId, route) {
       const url = `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stopId}`;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
         const data = await res.json();
@@ -160,12 +229,12 @@
       return [];
     }
 
-    // 2. 城巴 Citybus API (115 聯營線)
+    // 2. 抓取城巴 API (115 號線)
     async function fetchCTB(stopId, route) {
       const url = `https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/${stopId}/${route}`;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
         const data = await res.json();
@@ -176,12 +245,12 @@
       return [];
     }
 
-    // 3. 專線小巴 GMB API (2, 2A)
+    // 3. 抓取專線小巴 API (2, 2A)
     async function fetchGMB(routeId, stopSeq) {
       const url = `https://data.etagmb.gov.hk/eta/route-stop/${routeId}/1/${stopSeq}`;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
         const data = await res.json();
@@ -192,8 +261,8 @@
       return [];
     }
 
-    async function updateBusSchedules() {
-      // 寫入當前香港時間刷新印記
+    async function updateAllBus() {
+      // 印出香港 24 小時制刷新時間 (含秒數)
       const now = new Date();
       const timeStr = now.toLocaleTimeString('en-GB', {
         timeZone: 'Asia/Hong_Kong',
@@ -205,62 +274,72 @@
       document.getElementById('update-time').innerText = `巴士數據刷新時間: ${timeStr}`;
 
       try {
-        // 並行發送 API 請求
-        const [kmb8a, kmb8p, kmb115, ctb115, gmb2, gmb2a] = await Promise.all([
-          fetchKMB('1103A58F52D6CE51', '8A'),  // 黃埔花園總站 8A
-          fetchKMB('1103A58F52D6CE51', '8P'),  // 黃埔花園總站 8P
-          fetchKMB('1103A58F52D6CE51', '115'), // 黃埔花園總站 115 九巴
-          fetchCTB('002422', '115'),           // 黃埔花園總站 115 城巴
-          fetchGMB('2003233', '1'),            // 小巴 2 號線黃埔總站
-          fetchGMB('2003234', '1')             // 小巴 2A 號線黃埔總站
+        // 並行打 API 拿資料 (紅磡南道 + 黃埔花園)
+        const [
+          kmb12a, kmb7b, kmb297, kmb15, kmb269b,
+          kmb8a, kmb8p, kmb115, ctb115, gmb2, gmb2a
+        ] = await Promise.all([
+          // 紅磡南道 (Stop ID: 90BA441334E95B30)
+          fetchKMB('90BA441334E95B30', '12A'),
+          fetchKMB('90BA441334E95B30', '7B'),
+          fetchKMB('90BA441334E95B30', '297'),
+          fetchKMB('90BA441334E95B30', '15'),
+          fetchKMB('90BA441334E95B30', '269B'),
+
+          // 黃埔花園 (Stop ID: 1103A58F52D6CE51)
+          fetchKMB('1103A58F52D6CE51', '8A'),
+          fetchKMB('1103A58F52D6CE51', '8P'),
+          fetchKMB('1103A58F52D6CE51', '115'),
+          fetchCTB('002422', '115'),
+          fetchGMB('2003233', '1'), // 2 號小巴
+          fetchGMB('2003234', '1')  // 2A 號小巴
         ]);
 
-        // 渲染 8A
-        if (kmb8a.length > 0) {
-          document.getElementById('r8a-eta1').innerText = formatISO(kmb8a[0]?.eta);
-          document.getElementById('r8a-eta2').innerText = formatISO(kmb8a[1]?.eta);
-        }
+        // 渲染紅磡南道路線
+        const renderPair = (kmbList, id1, id2) => {
+          if (kmbList && kmbList.length > 0) {
+            document.getElementById(id1).innerText = formatISO(kmbList[0]?.eta);
+            document.getElementById(id2).innerText = formatISO(kmbList[1]?.eta);
+          }
+        };
 
-        // 渲染 8P
-        if (kmb8p.length > 0) {
-          document.getElementById('r8p-eta1').innerText = formatISO(kmb8p[0]?.eta);
-          document.getElementById('r8p-eta2').innerText = formatISO(kmb8p[1]?.eta);
-        }
+        renderPair(kmb12a, 'r12a-eta1', 'r12a-eta2');
+        renderPair(kmb7b, 'r7b-eta1', 'r7b-eta2');
+        renderPair(kmb297, 'r297-eta1', 'r297-eta2');
+        renderPair(kmb15, 'r15-eta1', 'r15-eta2');
+        renderPair(kmb269b, 'r269b-eta1', 'r269b-eta2');
 
-        // 渲染 115 (混合九巴與城巴班次並按時間排序)
+        // 渲染黃埔花園路線
+        renderPair(kmb8a, 'r8a-eta1', 'r8a-eta2');
+        renderPair(kmb8p, 'r8p-eta1', 'r8p-eta2');
+
+        // 115 號線（混合九巴及城巴並按時間排序）
         let list115 = [];
         if (kmb115) list115.push(...kmb115.map(i => ({ eta: i.eta, co: '九' })));
         if (ctb115) list115.push(...ctb115.map(i => ({ eta: i.eta, co: '城' })));
         list115 = list115.filter(i => i.eta).sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
         if (list115.length > 0) {
-          const e1 = list115[0];
-          const el1 = document.getElementById('r115-eta1');
-          el1.innerHTML = `${formatISO(e1.eta)} <span class="co-badge">${e1.co}</span>`;
-
+          document.getElementById('r115-eta1').innerHTML = `${formatISO(list115[0].eta)} <span class="co-badge">${list115[0].co}</span>`;
           if (list115.length > 1) {
-            const e2 = list115[1];
-            const el2 = document.getElementById('r115-eta2');
-            el2.innerHTML = `${formatISO(e2.eta)} <span class="co-badge">${e2.co}</span>`;
+            document.getElementById('r115-eta2').innerHTML = `${formatISO(list115[1].eta)} <span class="co-badge">${list115[1].co}</span>`;
           }
         }
 
-        // 渲染小巴 2 號
-        if (gmb2.length > 0) {
+        // 小巴 2 & 2A
+        if (gmb2 && gmb2.length > 0) {
           document.getElementById('r2-eta1').innerText = formatISO(gmb2[0]?.timestamp);
           document.getElementById('r2-eta2').innerText = formatISO(gmb2[1]?.timestamp);
         }
-
-        // 渲染小巴 2A 號
-        if (gmb2a.length > 0) {
+        if (gmb2a && gmb2a.length > 0) {
           document.getElementById('r2a-eta1').innerText = formatISO(gmb2a[0]?.timestamp);
           document.getElementById('r2a-eta2').innerText = formatISO(gmb2a[1]?.timestamp);
         }
 
-      } catch (err) {}
+      } catch (e) {}
     }
 
-    updateBusSchedules();
+    updateAllBus();
   </script>
 </body>
 </html>
