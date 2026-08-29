@@ -23,6 +23,7 @@
     "21:51",
     "22:11"
   ],
+  "debug_gmb_response": "{\"type\":\"ETA-Route-Stop\",\"version\":\"1.0\",\"generated_timestamp\":\"2026-08-29T21:45:45.100+08:00\",\"data\":{\"stop_id\":20000418,\"enabled\":true,\"eta\":[{\"eta_",
   "GMB2": [
     "--",
     "--"
@@ -43,5 +44,5 @@
     "21:54",
     "--"
   ],
-  "update_time": "21:42:29"
+  "update_time": "21:45:47"
 }
