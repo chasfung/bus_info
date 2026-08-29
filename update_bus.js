@@ -13,27 +13,36 @@ function fetchJSON(url) {
   });
 }
 
-// 加入多重代理，確保綠色小巴 API 唔會被封鎖
+// 🌟 升級版：4 重代理伺服器輪詢，專門破解綠色小巴 API 封鎖
 async function fetchAPI(url) {
+  // 1. 直連
   let res = await fetchJSON(url);
   if (res && res.data) return res;
   
-  let proxy1 = await fetchJSON(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-  if (proxy1 && proxy1.data) return proxy1;
+  // 2. AllOrigins (使用 .contents 安全解析)
+  let proxy1 = await fetchJSON(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+  if (proxy1 && proxy1.contents) {
+    try {
+      let parsed = JSON.parse(proxy1.contents);
+      if (parsed.data) return parsed;
+    } catch(e) {}
+  }
   
+  // 3. CorsProxy
   let proxy2 = await fetchJSON(`https://corsproxy.io/?${encodeURIComponent(url)}`);
   if (proxy2 && proxy2.data) return proxy2;
+
+  // 4. CodeTabs 終極後備
+  let proxy3 = await fetchJSON(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
+  if (proxy3 && proxy3.data) return proxy3;
   
   return null;
 }
 
-// 🌟 終極時區修復：強制將所有時間加上 8 小時，絕不受伺服器時區影響
 function parseTime(etaStr) {
   if (!etaStr) return '';
   const d = new Date(etaStr);
   if (isNaN(d.getTime())) return '';
-  
-  // 絕對香港時間 (UTC+8)
   const hkTime = new Date(d.getTime() + 8 * 3600000);
   const h = String(hkTime.getUTCHours()).padStart(2, '0');
   const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
@@ -46,9 +55,18 @@ function getBusTimes(data) {
   return [etas[0] || '--', etas[1] || '--'];
 }
 
+// 🌟 升級版：更強嘅綠色小巴數據解析防呆機制
 function getGMBTimes(data) {
-  if (!data || !data.data || !data.data[0] || !Array.isArray(data.data[0].eta)) return ['--', '--'];
-  const etas = data.data[0].eta.filter(item => item.timestamp).map(item => parseTime(item.timestamp));
+  if (!data || !data.data || !Array.isArray(data.data)) return ['--', '--'];
+  
+  // 自動尋找第一個包含 eta 陣列嘅數據點 (防止 API 變陣)
+  const validStop = data.data.find(item => item.eta && Array.isArray(item.eta) && item.eta.length > 0);
+  if (!validStop) return ['--', '--'];
+  
+  const etas = validStop.eta
+    .filter(item => item.timestamp)
+    .map(item => parseTime(item.timestamp));
+    
   return [etas[0] || '--', etas[1] || '--'];
 }
 
@@ -79,6 +97,7 @@ async function fetchAllBus() {
     }
   }
 
+  // 取得香港時間 (包含秒數)
   const hkTime = new Date(Date.now() + 8 * 3600000);
   const h = String(hkTime.getUTCHours()).padStart(2, '0');
   const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
