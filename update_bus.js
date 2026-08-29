@@ -2,50 +2,32 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 
-// 🌟 終極抓取模組：支援自動跟隨 301/302 Redirect，突破小巴 API 限制
 function fetchJSON(urlStr, redirects = 3) {
   return new Promise((resolve) => {
-    const parsed = new URL(urlStr);
-    const client = parsed.protocol === 'http:' ? http : https;
-    
-    client.get(urlStr, { 
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Accept': 'application/json'
-      } 
-    }, (res) => {
-      // 遇到轉址，自動追蹤
+    const client = urlStr.startsWith('https') ? https : http;
+    client.get(urlStr, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
-        let redirectUrl = res.headers.location;
-        if (!redirectUrl.startsWith('http')) redirectUrl = new URL(redirectUrl, urlStr).href;
-        return resolve(fetchJSON(redirectUrl, redirects - 1));
+        let redir = res.headers.location;
+        if (!redir.startsWith('http')) redir = new URL(redir, urlStr).href;
+        return resolve(fetchJSON(redir, redirects - 1));
       }
-      
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try { 
-          resolve(JSON.parse(data)); 
-        } catch (e) { 
-          resolve({ _raw: data.substring(0, 100), _status: res.statusCode }); 
-        }
+        try { resolve(JSON.parse(data)); } catch (e) { resolve(null); }
       });
-    }).on('error', (e) => resolve({ _error: e.message }));
+    }).on('error', () => resolve(null));
   });
 }
 
-// 代理備援機制 (改用 .win/raw 直接獲取 JSON)
 async function fetchAPI(url) {
   let res = await fetchJSON(url);
   if (res && res.data) return res;
   
-  let proxy1 = await fetchJSON(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-  if (proxy1 && proxy1.data) return proxy1;
+  let proxy = await fetchJSON(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+  if (proxy && proxy.data) return proxy;
   
-  let proxy2 = await fetchJSON(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-  if (proxy2 && proxy2.data) return proxy2;
-  
-  return res || proxy1 || { _error: "All requests failed" };
+  return res || null;
 }
 
 function parseTime(etaStr) {
@@ -58,24 +40,24 @@ function parseTime(etaStr) {
   return `${h}:${m}`;
 }
 
-function getBusTimes(data) {
-  if (!data || !data.data || !Array.isArray(data.data)) return ['--', '--'];
-  const etas = data.data.filter(item => item.eta).map(item => parseTime(item.eta));
-  return [etas[0] || '--', etas[1] || '--'];
-}
-
-function getGMBTimes(data) {
-  if (!data || !data.data || !Array.isArray(data.data)) return ['--', '--'];
-  
-  // 防呆機制：搵出真正有時間數據嘅陣列
-  const validStop = data.data.find(item => item.eta && Array.isArray(item.eta) && item.eta.length > 0);
-  if (!validStop) return ['--', '--']; 
-  
-  const etas = validStop.eta
-    .filter(item => item.timestamp)
-    .map(item => parseTime(item.timestamp));
+// 👑 終極暴力提取法：無視任何 JSON 結構，直接強制抽取時間！
+function extractTimes(data) {
+  let times = [];
+  try {
+    if (!data) return ['--', '--'];
+    // 將成個 API 回應變做純文字
+    let jsonStr = JSON.stringify(data.data || data);
     
-  return [etas[0] || '--', etas[1] || '--'];
+    // 用 Regex 吸塵機：只吸取 key 係 "timestamp" 或 "eta" 嘅 ISO 時間
+    let regex = /"(?:timestamp|eta)"\s*:\s*"(\d{4}-\d{2}-\d{2}T[^"]+)"/g;
+    let match;
+    while ((match = regex.exec(jsonStr)) !== null) {
+      let t = parseTime(match[1]);
+      if (t) times.push(t);
+    }
+  } catch (e) {}
+  
+  return [times[0] || '--', times[1] || '--'];
 }
 
 async function fetchAllBus() {
@@ -98,19 +80,11 @@ async function fetchAllBus() {
   const results = {};
   for (const [route, url] of Object.entries(urls)) {
     const rawData = await fetchAPI(url);
-    
-    // 📸 照妖鏡機制：專門記錄 GMB2 發生咩事
-    if (route === 'GMB2') {
-      results.debug_gmb_response = typeof rawData === 'object' ? JSON.stringify(rawData).substring(0, 150) : 'unknown';
-    }
-
-    if (route.startsWith('GMB')) {
-      results[route] = getGMBTimes(rawData);
-    } else {
-      results[route] = getBusTimes(rawData);
-    }
+    // 所有巴士/小巴統一使用暴力提取法
+    results[route] = extractTimes(rawData);
   }
 
+  // 取得香港時間 (加入秒數)
   const hkTime = new Date(Date.now() + 8 * 3600000);
   const h = String(hkTime.getUTCHours()).padStart(2, '0');
   const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
