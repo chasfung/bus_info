@@ -162,37 +162,36 @@
   <div class="footer">巴士數據刷新時間: <span id="bus-last-update">--:--:--</span></div>
 
   <script>
-    /* 格式化時間 HH:mm */
+    /* 強制香港時間 (UTC+8) 轉換，無視伺服器時區 */
+    function getHKTimeString(dateObj) {
+      if (isNaN(dateObj.getTime())) return "--:--";
+      // 取得絕對毫秒數，加上 8 小時 (8 * 60 * 60 * 1000)
+      const hkTimeMs = dateObj.getTime() + (8 * 3600000);
+      const hkDate = new Date(hkTimeMs);
+      // 直接提取 UTC 時間，此時已經是香港時間
+      const hrs = String(hkDate.getUTCHours()).padStart(2, '0');
+      const mins = String(hkDate.getUTCMinutes()).padStart(2, '0');
+      return `${hrs}:${mins}`;
+    }
+
     function formatTimeStr(isoString) {
       if (!isoString) return "--:--";
       if (typeof isoString === 'string' && /^\d{2}:\d{2}$/.test(isoString)) {
         return isoString;
       }
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) {
-        const match = String(isoString).match(/(\d{2}):(\d{2})/);
-        if (match) return `${match[1]}:${match[2]}`;
-        return "--:--";
-      }
-      const hrs = String(d.getHours()).padStart(2, '0');
-      const mins = String(d.getMinutes()).padStart(2, '0');
-      return `${hrs}:${mins}`;
+      return getHKTimeString(new Date(isoString));
     }
 
-    /* 專利專線小巴（GMB）高相容性時間戳解析器 */
+    /* 專線小巴高相容性時間戳解析器 */
     function parseGmbEtas(json) {
       let etas = [];
       if (!json) return etas;
-
       try {
         let items = [];
         if (Array.isArray(json.data)) {
           json.data.forEach(d => {
-            if (d && Array.isArray(d.eta)) {
-              items.push(...d.eta);
-            } else if (d && (d.timestamp || d.diff !== undefined)) {
-              items.push(d);
-            }
+            if (d && Array.isArray(d.eta)) items.push(...d.eta);
+            else if (d && (d.timestamp || d.diff !== undefined)) items.push(d);
           });
         } else if (json.data && Array.isArray(json.data.eta)) {
           items = json.data.eta;
@@ -205,27 +204,14 @@
             etas.push(item.timestamp);
           } else if (typeof item.diff === 'number') {
             const target = new Date(Date.now() + item.diff * 60000);
-            const hrs = String(target.getHours()).padStart(2, '0');
-            const mins = String(target.getMinutes()).padStart(2, '0');
-            etas.push(`${hrs}:${mins}`);
+            etas.push(getHKTimeString(target));
           }
         });
-
-        if (etas.length === 0) {
-          const str = JSON.stringify(json);
-          const matches = str.match(/"timestamp"\s*:\s*"([^"]+)"/g);
-          if (matches) {
-            matches.forEach(m => {
-              const valMatch = m.match(/"timestamp"\s*:\s*"([^"]+)"/);
-              if (valMatch && valMatch[1]) etas.push(valMatch[1]);
-            });
-          }
-        }
       } catch (err) {}
       return etas;
     }
 
-    /* 抓取九巴 / 小巴 到站 API (保留原本完全成功的代碼) */
+    /* 抓取 API (帶 CORS Proxy 備援) */
     async function fetchETA(url, elementId1, elementId2, isGMB = false) {
       const el1 = document.getElementById(elementId1);
       const el2 = document.getElementById(elementId2);
@@ -235,11 +221,8 @@
         let json = null;
         try {
           const res = await fetch(url);
-          if (res.ok) {
-            json = await res.json();
-          } else {
-            throw new Error(`HTTP ${res.status}`);
-          }
+          if (res.ok) json = await res.json();
+          else throw new Error(`HTTP ${res.status}`);
         } catch (directErr) {
           if (isGMB) {
             const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
@@ -266,7 +249,7 @@
       }
     }
 
-    /* 專門合併九巴同城巴 115 號線數據 */
+    /* 專門合併 115 號線數據 */
     async function updateCombined115() {
       const el1 = document.getElementById('eta-115-1');
       const el2 = document.getElementById('eta-115-2');
@@ -304,8 +287,10 @@
 
       function renderEtaHTML(item) {
         if (!item) return "--:--";
-        const hrs = String(item.time.getHours()).padStart(2, '0');
-        const mins = String(item.time.getMinutes()).padStart(2, '0');
+        const hkTimeMs = item.time.getTime() + (8 * 3600000);
+        const hkDate = new Date(hkTimeMs);
+        const hrs = String(hkDate.getUTCHours()).padStart(2, '0');
+        const mins = String(hkDate.getUTCMinutes()).padStart(2, '0');
         const badgeClass = item.company === '九' ? 'co-kmb' : 'co-ctb';
         return `${hrs}:${mins}<span class="co-label ${badgeClass}">${item.company}</span>`;
       }
@@ -314,7 +299,7 @@
       el2.innerHTML = renderEtaHTML(allEtas[1]);
     }
 
-    /* 更新所有巴士同小巴資料 (還原原本完全成功的 API 連結) */
+    /* 更新所有巴士，完全還原你成功的 API 連結 */
     function updateAllBuses() {
       // 1. 紅磡南道 (九巴)
       fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/12A/1', 'eta-12a-1', 'eta-12a-2');
@@ -330,14 +315,14 @@
       fetchETA('https://data.etabus.gov.hk/v1/transport/kmb/eta/75D6E5952B41E1D2/8P/1', 'eta-8p-1', 'eta-8p-2');
       updateCombined115();
 
+      // 強制香港時區底部更新時間
       const now = new Date();
-      const busUpdateElem = document.getElementById('bus-last-update');
-      if (busUpdateElem) {
-        const hrs = String(now.getHours()).padStart(2, '0');
-        const mins = String(now.getMinutes()).padStart(2, '0');
-        const secs = String(now.getSeconds()).padStart(2, '0');
-        busUpdateElem.textContent = `${hrs}:${mins}:${secs}`;
-      }
+      const hkTimeMs = now.getTime() + (8 * 3600000);
+      const hkDate = new Date(hkTimeMs);
+      const h = String(hkDate.getUTCHours()).padStart(2, '0');
+      const m = String(hkDate.getUTCMinutes()).padStart(2, '0');
+      const s = String(hkDate.getUTCSeconds()).padStart(2, '0');
+      document.getElementById('bus-last-update').textContent = `${h}:${m}:${s}`;
     }
 
     // 初始化與定時器
