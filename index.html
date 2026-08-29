@@ -8,26 +8,32 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@700;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #ffffff; font-family: 'Noto Sans HK', sans-serif; padding: 4px; }
-    .container { display: flex; flex-direction: column; height: 100%; gap: 6px; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #ffffff; font-family: 'Noto Sans HK', sans-serif; padding: 4px; display: flex; flex-direction: column; }
+    .container { display: flex; flex-direction: column; height: 100%; gap: 6px; flex: 1; }
     
     .section-title { font-size: 15px; font-weight: 900; color: #000; margin-left: 2px; }
-    .header-row { display: flex; justify-content: flex-end; gap: 20px; font-size: 11px; font-weight: 900; color: #666; padding-right: 5px; margin-bottom: -4px;}
     
     .bus-row { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
     .bus-tag { 
       background-color: #000; color: #fff; font-size: 18px; font-weight: 900; 
       padding: 2px 8px; border-radius: 6px; width: 85px; text-align: center;
     }
-    .gmb-tag { background-color: #8c9e5e; } /* 綠小專屬顏色 */
+    .gmb-tag { background-color: #8c9e5e; }
     
-    .times { display: flex; gap: 20px; font-size: 20px; font-weight: 700; color: #000; width: 140px; justify-content: flex-end; }
-    .time-slot { width: 60px; text-align: right; }
+    .times { display: flex; gap: 15px; font-size: 20px; font-weight: 700; color: #000; width: 170px; justify-content: flex-end; }
+    .time-slot { width: 80px; text-align: right; display: flex; justify-content: flex-end; align-items: center; }
+    
+    /* 聯營線專屬標籤 */
+    .co-tag { font-size: 10px; font-weight: 900; padding: 0 3px; border-radius: 4px; margin-left: 4px; height: 16px; line-height: 15px; }
+    .tag-kmb { background-color: #000; color: #fff; border: 1px solid #000; }
+    .tag-ctb { background-color: #fff; color: #000; border: 1px solid #000; }
+
+    /* 更新時間 */
+    .update-text { font-size: 10px; font-weight: 700; color: #555; text-align: right; padding-right: 6px; margin-top: auto; padding-bottom: 4px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header-row"><span>COMING</span><span>NEXT</span></div>
     
     <div class="section-title">紅磡南道</div>
     <div class="bus-row"><div class="bus-tag">12A</div><div class="times"><div class="time-slot" id="12A-1">--</div><div class="time-slot" id="12A-2">--</div></div></div>
@@ -41,9 +47,12 @@
     <div class="bus-row"><div class="bus-tag gmb-tag">2A</div><div class="times"><div class="time-slot" id="GMB2A-1">--</div><div class="time-slot" id="GMB2A-2">--</div></div></div>
     <div class="bus-row"><div class="bus-tag">8A</div><div class="times"><div class="time-slot" id="8A-1">--</div><div class="time-slot" id="8A-2">--</div></div></div>
     <div class="bus-row"><div class="bus-tag">8P</div><div class="times"><div class="time-slot" id="8P-1">--</div><div class="time-slot" id="8P-2">--</div></div></div>
+    
+    <!-- 合併後的 115 專屬行 -->
     <div class="bus-row"><div class="bus-tag">115</div><div class="times"><div class="time-slot" id="115-1">--</div><div class="time-slot" id="115-2">--</div></div></div>
-    <div class="bus-row"><div class="bus-tag">115城巴</div><div class="times"><div class="time-slot" id="115CTB-1">--</div><div class="time-slot" id="115CTB-2">--</div></div></div>
   </div>
+  
+  <div class="update-text" id="update-time">巴士數據刷新時間: --:--:--</div>
 
   <script>
     async function loadData() {
@@ -52,18 +61,58 @@
         const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          const routes = ['12A', '7B', '297', '15', '269B', 'GMB2', 'GMB2A', '8A', '8P', '115', '115CTB'];
+          
+          // 1. 處理一般路線
+          const routes = ['12A', '7B', '297', '15', '269B', 'GMB2', 'GMB2A', '8A', '8P'];
           routes.forEach(route => {
             if (data[route]) {
-              document.getElementById(`${route}-1`).innerText = data[route][0];
-              document.getElementById(`${route}-2`).innerText = data[route][1];
+              document.getElementById(`${route}-1`).innerText = data[route][0] || '--';
+              document.getElementById(`${route}-2`).innerText = data[route][1] || '--';
             }
           });
+
+          // 2. 智能合併 115 (九巴 + 城巴)
+          let times115 = [];
+          if (data['115']) {
+            data['115'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '九', cls: 'tag-kmb' }) });
+          }
+          if (data['115CTB']) {
+            data['115CTB'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '城', cls: 'tag-ctb' }) });
+          }
+          
+          // 根據時間排序 (解決 23:50 同 00:10 跨夜問題)
+          times115.sort((a, b) => {
+            let t1 = parseInt(a.time.replace(':', ''));
+            let t2 = parseInt(b.time.replace(':', ''));
+            if (t1 < 400) t1 += 2400; // 凌晨 4 點前視為第二日
+            if (t2 < 400) t2 += 2400;
+            return t1 - t2;
+          });
+
+          const slot1 = document.getElementById('115-1');
+          const slot2 = document.getElementById('115-2');
+          
+          if (times115.length > 0) {
+            slot1.innerHTML = `${times115[0].time} <span class="co-tag ${times115[0].cls}">${times115[0].co}</span>`;
+          } else {
+            slot1.innerHTML = '--';
+          }
+          
+          if (times115.length > 1) {
+            slot2.innerHTML = `${times115[1].time} <span class="co-tag ${times115[1].cls}">${times115[1].co}</span>`;
+          } else {
+            slot2.innerHTML = '--';
+          }
+
+          // 3. 更新時間印記
+          if (data.update_time) {
+            document.getElementById('update-time').innerText = `巴士數據刷新時間: ${data.update_time}`;
+          }
         }
       } catch(e) {}
     }
     loadData();
-    setInterval(loadData, 30000); // 網頁端每 30 秒重新讀取 JSON，確保永遠最新
+    setInterval(loadData, 30000);
   </script>
 </body>
 </html>
