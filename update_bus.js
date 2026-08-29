@@ -80,7 +80,10 @@ async function fetchAllBus() {
   }
 
   const hkTime = new Date(Date.now() + 8 * 3600000);
-  results.update_time = `${String(hkTime.getUTCHours()).padStart(2, '0')}:${String(hkTime.getUTCMinutes()).padStart(2, '0')}`;
+  const h = String(hkTime.getUTCHours()).padStart(2, '0');
+  const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
+  const s = String(hkTime.getUTCSeconds()).padStart(2, '0');
+  results.update_time = `${h}:${m}:${s}`;
 
   fs.writeFileSync('bus_data.json', JSON.stringify(results, null, 2));
   console.log('巴士數據寫入成功');
