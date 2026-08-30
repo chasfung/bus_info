@@ -40,7 +40,7 @@ function parseTime(etaStr) {
   return `${h}:${m}`;
 }
 
-// 👑 終極暴力提取法：提取 3 班車時間
+// 👑 升級版暴力提取法：加入「智能排序」及「過濾幽靈巴士（2分鐘內）」機制
 function extractTimes(data) {
   let times = [];
   try {
@@ -48,13 +48,44 @@ function extractTimes(data) {
     let jsonStr = JSON.stringify(data.data || data);
     let regex = /"(?:timestamp|eta)"\s*:\s*"(\d{4}-\d{2}-\d{2}T[^"]+)"/g;
     let match;
+    let rawDates = [];
+
+    // 1. 抽出所有時間並轉為 Date 物件
     while ((match = regex.exec(jsonStr)) !== null) {
-      let t = parseTime(match[1]);
-      if (t) times.push(t);
+      let d = new Date(match[1]);
+      if (!isNaN(d.getTime())) {
+        rawDates.push(d);
+      }
     }
+
+    // 2. 確保時間由早到遲順序排列 (解決時序混亂)
+    rawDates.sort((a, b) => a.getTime() - b.getTime());
+
+    // 3. 過濾重複或極度接近嘅時間 (解決循環線同一班車出現抵站+開出兩個時間)
+    let uniqueDates = [];
+    for (let d of rawDates) {
+      if (uniqueDates.length === 0) {
+        uniqueDates.push(d);
+      } else {
+        // 計算相隔分鐘
+        let diffMins = (d.getTime() - uniqueDates[uniqueDates.length - 1].getTime()) / 60000;
+        if (diffMins > 2) { // 相隔超過 2 分鐘先當係下一班新車
+          uniqueDates.push(d);
+        }
+      }
+    }
+
+    // 4. 轉換為香港時間 HH:mm
+    times = uniqueDates.map(d => {
+      const hkTime = new Date(d.getTime() + 8 * 3600000);
+      const h = String(hkTime.getUTCHours()).padStart(2, '0');
+      const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    });
+
   } catch (e) {}
   
-  // 解封第三班車
+  // 回傳 3 班車，如無數據補上 '--'
   return [times[0] || '--', times[1] || '--', times[2] || '--'];
 }
 
