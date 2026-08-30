@@ -40,52 +40,60 @@ function parseTime(etaStr) {
   return `${h}:${m}`;
 }
 
-// 👑 升級版暴力提取法：加入「智能排序」及「過濾幽靈巴士（2分鐘內）」機制
+// 👑 終極智能提取法：自動過濾循環線「抵站落客」幽靈時間，只顯示「開出」時間
 function extractTimes(data) {
   let times = [];
   try {
-    if (!data) return ['--', '--', '--'];
-    let jsonStr = JSON.stringify(data.data || data);
-    let regex = /"(?:timestamp|eta)"\s*:\s*"(\d{4}-\d{2}-\d{2}T[^"]+)"/g;
-    let match;
-    let rawDates = [];
-
-    // 1. 抽出所有時間並轉為 Date 物件
-    while ((match = regex.exec(jsonStr)) !== null) {
-      let d = new Date(match[1]);
-      if (!isNaN(d.getTime())) {
-        rawDates.push(d);
+    if (!data || !data.data) return ['--', '--', '--'];
+    
+    // 優先嘗試智能解析：尋找真正嘅 eta 資料
+    let validEtas = [];
+    let dataSource = Array.isArray(data.data) ? data.data : [data.data];
+    
+    for (let item of dataSource) {
+      if (item.eta) {
+        // 【核心防禦】過濾循環線尾站數據：
+        // 九巴 API 循環線回程總站通常 seq = 1，去程總站 (落客) seq > 15
+        if (item.seq && item.seq > 5) continue; 
+        validEtas.push(item.eta);
       }
     }
-
-    // 2. 確保時間由早到遲順序排列 (解決時序混亂)
-    rawDates.sort((a, b) => a.getTime() - b.getTime());
-
-    // 3. 過濾重複或極度接近嘅時間 (解決循環線同一班車出現抵站+開出兩個時間)
-    let uniqueDates = [];
-    for (let d of rawDates) {
-      if (uniqueDates.length === 0) {
-        uniqueDates.push(d);
-      } else {
-        // 計算相隔分鐘
-        let diffMins = (d.getTime() - uniqueDates[uniqueDates.length - 1].getTime()) / 60000;
-        if (diffMins > 2) { // 相隔超過 2 分鐘先當係下一班新車
-          uniqueDates.push(d);
-        }
-      }
+    
+    // 如果智能解析成功搵到資料
+    if (validEtas.length > 0) {
+       times = validEtas.map(etaStr => parseTime(etaStr)).filter(t => t !== '');
+    } else {
+       // 後備方案：如果 API 變陣，退回安全提取法，但加入 2 分鐘防幽靈車機制
+       let jsonStr = JSON.stringify(data.data);
+       let regex = /"(?:timestamp|eta)"\s*:\s*"(\d{4}-\d{2}-\d{2}T[^"]+)"/g;
+       let match;
+       let rawDates = [];
+       while ((match = regex.exec(jsonStr)) !== null) {
+         let d = new Date(match[1]);
+         if (!isNaN(d.getTime())) rawDates.push(d);
+       }
+       rawDates.sort((a, b) => a.getTime() - b.getTime());
+       
+       let uniqueDates = [];
+       for (let d of rawDates) {
+         if (uniqueDates.length === 0) {
+           uniqueDates.push(d);
+         } else {
+           if ((d.getTime() - uniqueDates[uniqueDates.length - 1].getTime()) / 60000 > 2) {
+             uniqueDates.push(d);
+           }
+         }
+       }
+       times = uniqueDates.map(d => {
+         const hkTime = new Date(d.getTime() + 8 * 3600000);
+         const h = String(hkTime.getUTCHours()).padStart(2, '0');
+         const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
+         return `${h}:${m}`;
+       });
     }
-
-    // 4. 轉換為香港時間 HH:mm
-    times = uniqueDates.map(d => {
-      const hkTime = new Date(d.getTime() + 8 * 3600000);
-      const h = String(hkTime.getUTCHours()).padStart(2, '0');
-      const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
-      return `${h}:${m}`;
-    });
-
   } catch (e) {}
   
-  // 回傳 3 班車，如無數據補上 '--'
+  // 保證回傳 3 個結果，無數據填 '--'
   return [times[0] || '--', times[1] || '--', times[2] || '--'];
 }
 
