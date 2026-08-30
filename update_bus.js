@@ -40,15 +40,12 @@ function parseTime(etaStr) {
   return `${h}:${m}`;
 }
 
-// 👑 終極暴力提取法：無視任何 JSON 結構，直接強制抽取時間！
+// 👑 終極暴力提取法：提取 3 班車時間
 function extractTimes(data) {
   let times = [];
   try {
-    if (!data) return ['--', '--'];
-    // 將成個 API 回應變做純文字
+    if (!data) return ['--', '--', '--'];
     let jsonStr = JSON.stringify(data.data || data);
-    
-    // 用 Regex 吸塵機：只吸取 key 係 "timestamp" 或 "eta" 嘅 ISO 時間
     let regex = /"(?:timestamp|eta)"\s*:\s*"(\d{4}-\d{2}-\d{2}T[^"]+)"/g;
     let match;
     while ((match = regex.exec(jsonStr)) !== null) {
@@ -57,7 +54,8 @@ function extractTimes(data) {
     }
   } catch (e) {}
   
-  return [times[0] || '--', times[1] || '--'];
+  // 解封第三班車
+  return [times[0] || '--', times[1] || '--', times[2] || '--'];
 }
 
 async function fetchAllBus() {
