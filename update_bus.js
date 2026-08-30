@@ -40,60 +40,56 @@ function parseTime(etaStr) {
   return `${h}:${m}`;
 }
 
-// 👑 終極智能提取法：自動過濾循環線「抵站落客」幽靈時間，只顯示「開出」時間
+// 👑 終極無敵提取法：結合 Regex 暴力吸塵 + 8A 循環線精準過濾
 function extractTimes(data) {
   let times = [];
   try {
     if (!data || !data.data) return ['--', '--', '--'];
-    
-    // 優先嘗試智能解析：尋找真正嘅 eta 資料
-    let validEtas = [];
-    let dataSource = Array.isArray(data.data) ? data.data : [data.data];
-    
-    for (let item of dataSource) {
-      if (item.eta) {
-        // 【核心防禦】過濾循環線尾站數據：
-        // 九巴 API 循環線回程總站通常 seq = 1，去程總站 (落客) seq > 15
-        if (item.seq && item.seq > 5) continue; 
-        validEtas.push(item.eta);
-      }
-    }
-    
-    // 如果智能解析成功搵到資料
-    if (validEtas.length > 0) {
-       times = validEtas.map(etaStr => parseTime(etaStr)).filter(t => t !== '');
-    } else {
-       // 後備方案：如果 API 變陣，退回安全提取法，但加入 2 分鐘防幽靈車機制
-       let jsonStr = JSON.stringify(data.data);
-       let regex = /"(?:timestamp|eta)"\s*:\s*"(\d{4}-\d{2}-\d{2}T[^"]+)"/g;
-       let match;
-       let rawDates = [];
-       while ((match = regex.exec(jsonStr)) !== null) {
-         let d = new Date(match[1]);
-         if (!isNaN(d.getTime())) rawDates.push(d);
-       }
-       rawDates.sort((a, b) => a.getTime() - b.getTime());
-       
-       let uniqueDates = [];
-       for (let d of rawDates) {
-         if (uniqueDates.length === 0) {
-           uniqueDates.push(d);
-         } else {
-           if ((d.getTime() - uniqueDates[uniqueDates.length - 1].getTime()) / 60000 > 2) {
-             uniqueDates.push(d);
-           }
-         }
-       }
-       times = uniqueDates.map(d => {
-         const hkTime = new Date(d.getTime() + 8 * 3600000);
-         const h = String(hkTime.getUTCHours()).padStart(2, '0');
-         const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
-         return `${h}:${m}`;
+
+    // 1. 專門針對 8A 循環線：喺吸塵之前，精準剷除落客站 (seq > 5) 嘅資料
+    if (Array.isArray(data.data)) {
+       data.data = data.data.filter(item => {
+         // 只要見到係 8A，而且 seq 大過 5 (即係回程落客)，就即刻踢走！
+         if (item.route === '8A' && item.seq && item.seq > 5) return false;
+         return true; // 其他巴士/小巴全部放行
        });
     }
+
+    // 2. 用返最穩陣嘅 Regex 暴力吸塵機 (無視結構，直接吸時間)
+    let jsonStr = JSON.stringify(data.data);
+    let regex = /"(?:timestamp|eta)"\s*:\s*"(\d{4}-\d{2}-\d{2}T[^"]+)"/g;
+    let match;
+    let rawDates = [];
+
+    while ((match = regex.exec(jsonStr)) !== null) {
+      let d = new Date(match[1]);
+      if (!isNaN(d.getTime())) rawDates.push(d);
+    }
+
+    // 3. 確保時間由早到遲順序排列，並過濾 2 分鐘內嘅幽靈車
+    rawDates.sort((a, b) => a.getTime() - b.getTime());
+
+    let uniqueDates = [];
+    for (let d of rawDates) {
+      if (uniqueDates.length === 0) {
+        uniqueDates.push(d);
+      } else {
+        if ((d.getTime() - uniqueDates[uniqueDates.length - 1].getTime()) / 60000 > 2) {
+          uniqueDates.push(d);
+        }
+      }
+    }
+
+    // 4. 轉換為香港時間 HH:mm
+    times = uniqueDates.map(d => {
+      const hkTime = new Date(d.getTime() + 8 * 3600000);
+      const h = String(hkTime.getUTCHours()).padStart(2, '0');
+      const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    });
+
   } catch (e) {}
   
-  // 保證回傳 3 個結果，無數據填 '--'
   return [times[0] || '--', times[1] || '--', times[2] || '--'];
 }
 
