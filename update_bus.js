@@ -111,13 +111,16 @@ async function fetchAllBus() {
   };
 
   const results = {};
-  for (const [route, url] of Object.entries(urls)) {
+  
+  // 🚀 極速引擎：使用 Promise.all 同時發射所有 API 請求 (平行處理)
+  const fetchPromises = Object.entries(urls).map(async ([route, url]) => {
     const rawData = await fetchAPI(url);
-    // 所有巴士/小巴統一使用暴力提取法
     results[route] = extractTimes(rawData);
-  }
+  });
 
-  // 取得香港時間 (加入秒數)
+  // 等待所有路線同時完成
+  await Promise.all(fetchPromises);
+
   const hkTime = new Date(Date.now() + 8 * 3600000);
   const h = String(hkTime.getUTCHours()).padStart(2, '0');
   const m = String(hkTime.getUTCMinutes()).padStart(2, '0');
