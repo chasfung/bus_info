@@ -55,17 +55,18 @@
 
 <script>
     async function loadData() {
-      const url = `https://raw.githubusercontent.com/chasfung/bus_info/main/bus_data.json?_t=${new Date().getTime()}`;
+      // 改回 GitHub Pages 相對路徑 + 防快取時間戳（穩定、高速且不受 Rate Limit 限制）
+      const url = `bus_data.json?_t=${Date.now()}`;
       
-      // 嘗試最多讀取 2 次，防範瞬間網絡或寫入碰撞
-      for (let attempt = 0; attempt < 2; attempt++) {
+      // SenseCraft 醒過來時，最多連續嘗試 5 次（每次隔 1 秒），確保網絡抖動亦能成功讀取
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
           const res = await fetch(url, { cache: 'no-store' });
           if (res.ok) {
             const data = await res.json();
             
-            // 驗證數據是否完整（確保有 update_time 欄位先至好更新畫面）
-            if (!data.update_time) return;
+            // 驗證數據完整性，防範未寫完嘅 JSON
+            if (!data.update_time) throw new Error('Data incomplete');
 
             // 一般路線 (載入 3 個位)
             const routes = ['12A', '7B', '297', '15', '269B', 'GMB2', 'GMB2A', '8A', '8P'];
@@ -104,18 +105,18 @@
 
             document.getElementById('update-time').innerText = `巴士數據刷新時間: ${data.update_time}`;
             
-            // 成功讀取並更新後，直接跳出迴圈
+            // 成功讀取即時跳出迴圈
             return; 
           }
         } catch(e) {
-          // 如果第一次撞正半寫入狀態，等待 1 秒後自動重試第二次
-          if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
+          // 若第一次失敗，等待 1 秒後自動重試，最多試 5 次
+          await new Promise(r => setTimeout(r, 1000));
         }
       }
     }
 
     loadData();
-    setInterval(loadData, 120000); // 配合 2 分鐘更新頻率
+    setInterval(loadData, 120000); // 每 2 分鐘刷新一次
   </script>
 </body>
 </html>
