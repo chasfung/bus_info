@@ -56,7 +56,7 @@
   <script>
     async function loadData() {
       try {
-        const url = `bus_data.json?_t=${new Date().getTime()}`;
+        const url = `https://raw.githubusercontent.com/chasfung/bus_info/main/bus_data.json?_t=${new Date().getTime()}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
