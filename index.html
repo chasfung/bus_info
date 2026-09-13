@@ -53,57 +53,69 @@
   
   <div class="update-text" id="update-time">巴士數據刷新時間: --:--:--</div>
 
-  <script>
+<script>
     async function loadData() {
-      try {
-        const url = `https://raw.githubusercontent.com/chasfung/bus_info/main/bus_data.json?_t=${new Date().getTime()}`;
-        const res = await fetch(url, { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          
-          // 一般路線 (載入 3 個位)
-          const routes = ['12A', '7B', '297', '15', '269B', 'GMB2', 'GMB2A', '8A', '8P'];
-          routes.forEach(route => {
-            if (data[route]) {
-              document.getElementById(`${route}-1`).innerText = data[route][0] || '--';
-              document.getElementById(`${route}-2`).innerText = data[route][1] || '--';
-              document.getElementById(`${route}-3`).innerText = data[route][2] || '--';
+      const url = `https://raw.githubusercontent.com/chasfung/bus_info/main/bus_data.json?_t=${new Date().getTime()}`;
+      
+      // 嘗試最多讀取 2 次，防範瞬間網絡或寫入碰撞
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            
+            // 驗證數據是否完整（確保有 update_time 欄位先至好更新畫面）
+            if (!data.update_time) return;
+
+            // 一般路線 (載入 3 個位)
+            const routes = ['12A', '7B', '297', '15', '269B', 'GMB2', 'GMB2A', '8A', '8P'];
+            routes.forEach(route => {
+              if (data[route]) {
+                document.getElementById(`${route}-1`).innerText = data[route][0] || '--';
+                document.getElementById(`${route}-2`).innerText = data[route][1] || '--';
+                document.getElementById(`${route}-3`).innerText = data[route][2] || '--';
+              }
+            });
+
+            // 115 智能合併
+            let times115 = [];
+            if (data['115']) {
+              data['115'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '九', cls: 'tag-kmb' }) });
             }
-          });
+            if (data['115CTB']) {
+              data['115CTB'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '城', cls: 'tag-ctb' }) });
+            }
+            
+            times115.sort((a, b) => {
+              let t1 = parseInt(a.time.replace(':', ''));
+              let t2 = parseInt(b.time.replace(':', ''));
+              if (t1 < 400) t1 += 2400; 
+              if (t2 < 400) t2 += 2400;
+              return t1 - t2;
+            });
 
-          // 115 智能合併
-          let times115 = [];
-          if (data['115']) {
-            data['115'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '九', cls: 'tag-kmb' }) });
-          }
-          if (data['115CTB']) {
-            data['115CTB'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '城', cls: 'tag-ctb' }) });
-          }
-          
-          times115.sort((a, b) => {
-            let t1 = parseInt(a.time.replace(':', ''));
-            let t2 = parseInt(b.time.replace(':', ''));
-            if (t1 < 400) t1 += 2400; 
-            if (t2 < 400) t2 += 2400;
-            return t1 - t2;
-          });
+            const slot1 = document.getElementById('115-1');
+            const slot2 = document.getElementById('115-2');
+            const slot3 = document.getElementById('115-3');
+            
+            slot1.innerHTML = times115.length > 0 ? `${times115[0].time} <span class="co-tag ${times115[0].cls}">${times115[0].co}</span>` : '--';
+            slot2.innerHTML = times115.length > 1 ? `${times115[1].time} <span class="co-tag ${times115[1].cls}">${times115[1].co}</span>` : '--';
+            slot3.innerHTML = times115.length > 2 ? `${times115[2].time} <span class="co-tag ${times115[2].cls}">${times115[2].co}</span>` : '--';
 
-          const slot1 = document.getElementById('115-1');
-          const slot2 = document.getElementById('115-2');
-          const slot3 = document.getElementById('115-3');
-          
-          slot1.innerHTML = times115.length > 0 ? `${times115[0].time} <span class="co-tag ${times115[0].cls}">${times115[0].co}</span>` : '--';
-          slot2.innerHTML = times115.length > 1 ? `${times115[1].time} <span class="co-tag ${times115[1].cls}">${times115[1].co}</span>` : '--';
-          slot3.innerHTML = times115.length > 2 ? `${times115[2].time} <span class="co-tag ${times115[2].cls}">${times115[2].co}</span>` : '--';
-
-          if (data.update_time) {
             document.getElementById('update-time').innerText = `巴士數據刷新時間: ${data.update_time}`;
+            
+            // 成功讀取並更新後，直接跳出迴圈
+            return; 
           }
+        } catch(e) {
+          // 如果第一次撞正半寫入狀態，等待 1 秒後自動重試第二次
+          if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
         }
-      } catch(e) {}
+      }
     }
+
     loadData();
-    setInterval(loadData, 120000);
+    setInterval(loadData, 120000); // 配合 2 分鐘更新頻率
   </script>
 </body>
 </html>
