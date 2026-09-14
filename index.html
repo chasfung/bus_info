@@ -55,8 +55,8 @@
 
 <script>
     async function loadData() {
-      // 改回 GitHub Pages 相對路徑 + 防快取時間戳（穩定、高速且不受 Rate Limit 限制）
-      const url = `bus_data.json?_t=${Date.now()}`;
+      // 精準替換為呢行完整版 (絕對路徑)：
+      const url = `https://chasfung.github.io/bus_info/bus_data.json?_t=${Date.now()}`;
       
       // SenseCraft 醒過來時，最多連續嘗試 5 次（每次隔 1 秒），確保網絡抖動亦能成功讀取
       for (let attempt = 0; attempt < 5; attempt++) {
