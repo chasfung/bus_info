@@ -1,1 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>Bus Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #ffffff; font-family: 'Noto Sans HK', sans-serif; padding: 4px; display: flex; flex-direction: column; }
+    .container { display: flex; flex-direction: column; height: 100%; gap: 6px; flex: 1; }
+    
+    .section-title { font-size: 15px; font-weight: 900; color: #000; margin-left: 2px; }
+    
+    .bus-row { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+    .bus-tag { 
+      background-color: #000; color: #fff; font-size: 18px; font-weight: 900; 
+      padding: 2px 8px; border-radius: 6px; width: 85px; text-align: center; flex-shrink: 0;
+    }
+    .gmb-tag { background-color: #8c9e5e; }
+    
+    /* 擴闊時間顯示區，收窄間距，完美塞入三班車 */
+    .times { display: flex; gap: 8px; font-size: 20px; font-weight: 700; color: #000; flex: 1; justify-content: flex-end; padding-left: 10px;}
+    .time-slot { width: 68px; text-align: right; display: flex; justify-content: flex-end; align-items: center; }
+    
+    /* 聯營線專屬標籤稍微縮細，確保三班車唔會逼爆 */
+    .co-tag { font-size: 9px; font-weight: 900; padding: 0 2px; border-radius: 3px; margin-left: 2px; height: 15px; line-height: 14px; }
+    .tag-kmb { background-color: #000; color: #fff; border: 1px solid #000; }
+    .tag-ctb { background-color: #fff; color: #000; border: 1px solid #000; }
 
+    .update-text { font-size: 10px; font-weight: 700; color: #555; text-align: right; padding-right: 6px; margin-top: auto; padding-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <div class="section-title">紅磡南道</div>
+    <div class="bus-row"><div class="bus-tag">12A</div><div class="times"><div class="time-slot" id="12A-1">--</div><div class="time-slot" id="12A-2">--</div><div class="time-slot" id="12A-3">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">7B</div><div class="times"><div class="time-slot" id="7B-1">--</div><div class="time-slot" id="7B-2">--</div><div class="time-slot" id="7B-3">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">297</div><div class="times"><div class="time-slot" id="297-1">--</div><div class="time-slot" id="297-2">--</div><div class="time-slot" id="297-3">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">15</div><div class="times"><div class="time-slot" id="15-1">--</div><div class="time-slot" id="15-2">--</div><div class="time-slot" id="15-3">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag" id="swap-tag">269B</div><div class="times"><div class="time-slot" id="swap-1">--</div><div class="time-slot" id="swap-2">--</div><div class="time-slot" id="swap-3">--</div></div></div>
+
+    <div class="section-title" style="margin-top: 4px;">黃埔花園</div>
+    <div class="bus-row"><div class="bus-tag gmb-tag">2</div><div class="times"><div class="time-slot" id="GMB2-1">--</div><div class="time-slot" id="GMB2-2">--</div><div class="time-slot" id="GMB2-3">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag gmb-tag">2A</div><div class="times"><div class="time-slot" id="GMB2A-1">--</div><div class="time-slot" id="GMB2A-2">--</div><div class="time-slot" id="GMB2A-3">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">8A</div><div class="times"><div class="time-slot" id="8A-1">--</div><div class="time-slot" id="8A-2">--</div><div class="time-slot" id="8A-3">--</div></div></div>
+    <div class="bus-row"><div class="bus-tag">8P</div><div class="times"><div class="time-slot" id="8P-1">--</div><div class="time-slot" id="8P-2">--</div><div class="time-slot" id="8P-3">--</div></div></div>
+    
+    <div class="bus-row"><div class="bus-tag">115</div><div class="times"><div class="time-slot" id="115-1">--</div><div class="time-slot" id="115-2">--</div><div class="time-slot" id="115-3">--</div></div></div>
+  </div>
+  
+  <div class="update-text" id="update-time">巴士數據刷新時間: --:--:--</div>
+
+<script>
+    async function loadData() {
+      // 精準替換為呢行完整版 (絕對路徑)：
+      const url = `https://chasfung.github.io/bus_info/bus_data.json?_t=${Date.now()}`;
+      
+      // SenseCraft 醒過來時，最多連續嘗試 5 次（每次隔 1 秒），確保網絡抖動亦能成功讀取
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            
+            // 驗證數據完整性，防範未寫完嘅 JSON
+            if (!data.update_time) throw new Error('Data incomplete');
+
+            // 1. 將 '269B' 從一般路線陣列中刪除 (保留其他)
+            const routes = ['12A', '7B', '297', '15', 'GMB2', 'GMB2A', '8A', '8P'];
+            routes.forEach(route => {
+              if (data[route]) {
+                document.getElementById(`${route}-1`).innerText = data[route][0] || '--';
+                document.getElementById(`${route}-2`).innerText = data[route][1] || '--';
+                document.getElementById(`${route}-3`).innerText = data[route][2] || '--';
+              }
+            });
+
+            // 2. 判斷香港時間是否為星期六 10:00 - 13:59
+            const hkTime = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+            const day = hkTime.getDay(); // 0是星期日，6是星期六
+            const hour = hkTime.getHours(); // 24小時制，10 至 13 代表 10:xx 至 13:xx
+            
+            // 支援手動測試秘技：網址加上 ?force=30X 即可強制預覽
+            const urlParams = new URLSearchParams(window.location.search);
+            const force30X = urlParams.get('force') === '30X';
+
+            // 決定當前要顯示的路線
+            const is30XTime = (day === 6 && hour >= 10 && hour < 14);
+            const activeRoute = (is30XTime || force30X) ? '30X' : '269B';
+
+            // 3. 更新版面顯示
+            document.getElementById('swap-tag').innerText = activeRoute;
+            if (data[activeRoute]) {
+              document.getElementById('swap-1').innerText = data[activeRoute][0] || '--';
+              document.getElementById('swap-2').innerText = data[activeRoute][1] || '--';
+              document.getElementById('swap-3').innerText = data[activeRoute][2] || '--';
+            } else {
+              document.getElementById('swap-1').innerText = '--';
+              document.getElementById('swap-2').innerText = '--';
+              document.getElementById('swap-3').innerText = '--';
+            }
+
+            // 115 智能合併
+            let times115 = [];
+            if (data['115']) {
+              data['115'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '九', cls: 'tag-kmb' }) });
+            }
+            if (data['115CTB']) {
+              data['115CTB'].forEach(t => { if(t !== '--') times115.push({ time: t, co: '城', cls: 'tag-ctb' }) });
+            }
+            
+            times115.sort((a, b) => {
+              let t1 = parseInt(a.time.replace(':', ''));
+              let t2 = parseInt(b.time.replace(':', ''));
+              if (t1 < 400) t1 += 2400; 
+              if (t2 < 400) t2 += 2400;
+              return t1 - t2;
+            });
+
+            const slot1 = document.getElementById('115-1');
+            const slot2 = document.getElementById('115-2');
+            const slot3 = document.getElementById('115-3');
+            
+            slot1.innerHTML = times115.length > 0 ? `${times115[0].time} <span class="co-tag ${times115[0].cls}">${times115[0].co}</span>` : '--';
+            slot2.innerHTML = times115.length > 1 ? `${times115[1].time} <span class="co-tag ${times115[1].cls}">${times115[1].co}</span>` : '--';
+            slot3.innerHTML = times115.length > 2 ? `${times115[2].time} <span class="co-tag ${times115[2].cls}">${times115[2].co}</span>` : '--';
+
+            document.getElementById('update-time').innerText = `巴士數據刷新時間: ${data.update_time}`;
+            
+            // 成功讀取即時跳出迴圈
+            return; 
+          }
+        } catch(e) {
+          // 若第一次失敗，等待 1 秒後自動重試，最多試 5 次
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+    }
+
+    loadData();
+    setInterval(loadData, 180000); // 每 3 分鐘刷新一次
+  </script>
+</body>
+</html>
