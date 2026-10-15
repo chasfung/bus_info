@@ -102,6 +102,7 @@ async function fetchAllBus() {
     '297': 'https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/297/1',
     '15': 'https://data.etabus.gov.hk/v1/transport/kmb/eta/EF5A5CD9C3A038C9/15/1',
     '269B': 'https://data.etabus.gov.hk/v1/transport/kmb/eta/95FAB1D2AD752ECE/269B/1',
+    '30X': 'https://data.etabus.gov.hk/v1/transport/kmb/eta/95FAB1D2AD752ECE/30X/1',
     'GMB2': 'https://data.etagmb.gov.hk/eta/route-stop/2009246/1/1',
     'GMB2A': 'https://data.etagmb.gov.hk/eta/route-stop/2009247/1/1',
     '8A': 'https://data.etabus.gov.hk/v1/transport/kmb/eta/75D6E5952B41E1D2/8A/1',
