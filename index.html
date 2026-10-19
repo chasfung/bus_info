@@ -88,7 +88,7 @@
             const force30X = urlParams.get('force') === '30X';
 
             // 決定當前要顯示的路線
-            const is30XTime = (day === 6 && hour >= 10 && hour < 14);
+            const is30XTime = (day === 6 && hour >= 10 && hour < 16);
             const activeRoute = (is30XTime || force30X) ? '30X' : '269B';
 
             // 3. 更新版面顯示
